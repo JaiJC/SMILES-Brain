@@ -1,0 +1,21 @@
+# Baseline affinity-model training config (scikit-learn Ridge, CPU).
+model:
+  backend: sklearn        # sklearn | torch
+  alpha: 1.0              # ridge regularisation (sklearn)
+
+features:
+  n_bits: 2048
+  radius: 2
+
+data:
+  labels: data/labels.parquet   # produced by data.assemble; falls back to synthetic if absent
+  synthetic_n: 400              # used only when labels file is missing
+
+split:
+  scheme: scaffold        # scaffold | random  (scaffold = held-out chemotypes, the honest test)
+  test_frac: 0.2
+  seed: 0
+
+output:
+  artifact: artifacts/affinity_baseline.joblib
+  report: artifacts/affinity_baseline_report.csv
