@@ -1,0 +1,53 @@
+# Catalog of observed drug-response brain maps used to validate predicted maps.
+#
+# Each entry is a drug with (a) a SMILES so the Stage-1 model can predict its affinity
+# profile zero-shot, and (b) a pointer to an observed, parcellated response map. The observed
+# maps are NOT shipped in this repo -- they come from published datasets and must be fetched
+# and parcellated to the same Schaefer-100 space (see docs and each `source`). Drop the
+# resulting one-value-per-region CSV at `file`.
+#
+# `measure`:      what the observed map quantifies (CBF change, BOLD, occupancy, etc.).
+# `expected_sign`: optional prior on the predicted-vs-observed correlation direction. Reuptake
+#                  inhibitors tend to anti-correlate with their target-transporter density,
+#                  direct agonists tend to correlate -- so sign is informative, not noise.
+# `measured_profile`: optional PDSP/literature affinity CSV, to reproduce the classic
+#                  *measured-affinity* projection as a sanity check before trusting predictions.
+#
+# This catalog is intentionally small and curated from pharmacological-imaging literature
+# (e.g. Dukart et al. 2018; Luppi et al. 2023). Expand it as you locate more open maps.
+
+maps:
+  - drug: methylphenidate
+    smiles: "COC(=O)C(c1ccccc1)C1CCCCN1"
+    measure: CBF
+    expected_sign: negative          # DAT/NET reuptake inhibitor
+    source: "Dukart et al. 2018, Sci Rep; see docs/VALIDATION.md for retrieval"
+    file: data/validation/methylphenidate.csv
+
+  - drug: ketamine
+    smiles: "CNC1(c2ccccc2Cl)CCCCC1=O"
+    measure: CBF
+    expected_sign: positive          # NMDA antagonist, complex downstream effects
+    source: "pharmacological imaging literature; parcellate to Schaefer-100"
+    file: data/validation/ketamine.csv
+
+  - drug: risperidone
+    smiles: "CC1=C(C(=O)N2CCCCC2=N1)CCN3CCC(CC3)C4=NOC5=C4C=CC(=C5)F"
+    measure: CBF
+    expected_sign: negative          # D2/5-HT2A antagonist
+    source: "Dukart et al. 2018, Sci Rep"
+    file: data/validation/risperidone.csv
+
+  - drug: haloperidol
+    smiles: "O=C(CCCN1CCC(O)(c2ccc(Cl)cc2)CC1)c1ccc(F)cc1"
+    measure: CBF
+    expected_sign: negative          # D2 antagonist
+    source: "Dukart et al. 2018, Sci Rep"
+    file: data/validation/haloperidol.csv
+
+  - drug: LSD
+    smiles: "CCN(CC)C(=O)[C@H]1CN([C@@H]2Cc3c[nH]c4cccc(c34)C2=C1)C"
+    measure: BOLD
+    expected_sign: positive          # 5-HT2A agonist
+    source: "Luppi et al. 2023, Sci Adv (psychedelic maps)"
+    file: data/validation/lsd.csv

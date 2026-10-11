@@ -50,6 +50,24 @@ def synthetic_labels(
     return y
 
 
+def synthetic_observed_map(
+    atlas: pd.DataFrame,
+    affinity: dict,
+    noise: float = 0.5,
+    seed: int = 0,
+) -> np.ndarray:
+    """A fake 'observed' drug map that is the true projection plus noise.
+
+    Used only in tests: a correct harness should recover a positive, often significant,
+    correlation between the predicted and this noised-true map.
+    """
+    from smilesbrain.projection import project_affinity
+
+    rng = np.random.default_rng(seed)
+    truth = project_affinity(affinity, atlas, weight_mode="zscore").region_scores
+    return truth + rng.normal(0, noise * (truth.std() + 1e-8), size=truth.shape)
+
+
 def synthetic_atlas(cfg: ReceptorConfig, seed: int = 0) -> pd.DataFrame:
     """Region x receptor density matrix with mild spatial smoothness per receptor."""
     rng = np.random.default_rng(seed)
