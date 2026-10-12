@@ -1,0 +1,10 @@
+# Generated from pyproject.toml for the Python 3.10 core runtime.
+# Heavy extras (rdkit, torch, matplotlib, and nibabel) remain optional; use
+# environment.yml for the full conda environment.
+numpy==1.26.4
+pandas==2.2.3
+scipy==1.14.1
+scikit-learn==1.5.2
+PyYAML==6.0.2
+tqdm==4.67.1
+requests==2.32.3

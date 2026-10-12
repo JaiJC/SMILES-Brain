@@ -41,6 +41,33 @@ with a **structure-to-affinity model**, unlocking two things nobody has shipped 
 
 ## Quickstart
 
+### Reproducible environment
+
+The full development environment, including optional chemistry, PyTorch,
+validation, and visualisation dependencies, is defined in
+[`environment.yml`](environment.yml):
+
+```bash
+conda env create -f environment.yml
+conda activate smilesbrain
+pip install -e .
+```
+
+For a lightweight CPU-only install without optional heavy dependencies, use
+the pinned core lock instead:
+
+```bash
+python -m pip install -r requirements-lock.txt
+python -m pip install -e .
+```
+
+The lock is intended for Python 3.10. The conda file includes a CPU-capable
+PyTorch build. On an HPC with NVIDIA GPUs, remove the `pytorch` dependency
+before creating the environment and install the CUDA-matched build from
+[`pytorch.org`](https://pytorch.org/get-started/locally/), or use the
+corresponding `pytorch` and `pytorch-cuda` conda packages for the cluster's
+CUDA version.
+
 ```bash
 pip install -e ".[dev]"
 python -m smilesbrain.data.fetch_atlas          # Hansen receptor atlas (open)
