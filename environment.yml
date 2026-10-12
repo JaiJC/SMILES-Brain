@@ -17,10 +17,13 @@ dependencies:
   - pytorch=2.5.1
   - matplotlib=3.9.2
   - nibabel=5.3.2
-  - netneurotools=0.3.0
-  - chemprop=2.2.1
   - pytest=8.3.4
   - ruff=0.8.4
+  - pip:
+      # These optional packages are installed from PyPI because compatible
+      # Python 3.10 conda-forge builds are not available.
+      - netneurotools==0.2.5
+      - chemprop==1.7.1
 
   # The pytorch package above is a CPU-capable baseline. On HPC systems with
   # CUDA, remove it and install the CUDA-matched build from pytorch.org, for
