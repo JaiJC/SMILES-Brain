@@ -26,6 +26,7 @@ import pandas as pd
 from smilesbrain.config import load_receptors
 from smilesbrain.validation import evaluate_catalog, load_catalog, load_observed_map
 from smilesbrain.validation.nulls import load_spins
+from smilesbrain.utils import set_global_seed, stable_seed, write_run_manifest
 
 
 def _demo():
@@ -56,7 +57,7 @@ def _demo():
     observed = {}
     for entry in catalog:
         observed[entry.drug] = synthetic_observed_map(atlas, predict(entry.smiles),
-                                                      noise=0.6, seed=hash(entry.drug) % 1000)
+                                                      noise=0.6, seed=stable_seed(entry.drug))
     return rc, atlas, predict, catalog, observed, None
 
 
@@ -91,7 +92,9 @@ def main() -> None:
     ap.add_argument("--spins", default="data/atlas/spins_scale100.npy", type=Path)
     ap.add_argument("--weight-mode", default="zscore", choices=["raw", "zscore", "softmax"])
     ap.add_argument("--out", default="artifacts/validation_results.csv", type=Path)
+    ap.add_argument("--seed", type=int, default=0)
     args = ap.parse_args()
+    set_global_seed(args.seed)
 
     demo = not (args.artifact.exists() and args.atlas.exists())
     if demo:
@@ -124,6 +127,14 @@ def main() -> None:
     args.out.parent.mkdir(parents=True, exist_ok=True)
     results.to_csv(args.out, index=False)
     print(f"results -> {args.out}")
+    manifest = write_run_manifest(
+        args.out,
+        config={"artifact": str(args.artifact), "atlas": str(args.atlas),
+                "spins": str(args.spins), "weight_mode": args.weight_mode},
+        seed=args.seed,
+        input_paths=[args.artifact, args.atlas, args.spins],
+    )
+    print(f"manifest -> {manifest}")
 
 
 if __name__ == "__main__":

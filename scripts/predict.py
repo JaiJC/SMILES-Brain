@@ -24,6 +24,7 @@ import pandas as pd
 from smilesbrain.config import load_receptors
 from smilesbrain.features import FingerprintConfig, morgan_fingerprint
 from smilesbrain.projection import project_affinity
+from smilesbrain.utils import set_global_seed, write_run_manifest
 
 
 def _load_atlas(path: Path, rc):
@@ -56,7 +57,9 @@ def main() -> None:
     ap.add_argument("--weight-mode", default="zscore", choices=["raw", "zscore", "softmax"])
     ap.add_argument("--out", default="artifacts/prediction.csv", type=Path)
     ap.add_argument("--top", type=int, default=10)
+    ap.add_argument("--seed", type=int, default=0)
     args = ap.parse_args()
+    set_global_seed(args.seed)
 
     rc = load_receptors()
     model, fp, keys, demo_model = _load_model(args.artifact, rc)
@@ -96,6 +99,13 @@ def main() -> None:
     args.out.parent.mkdir(parents=True, exist_ok=True)
     df.to_csv(args.out, index=False)
     print(f"\nper-region scores -> {args.out}")
+    manifest = write_run_manifest(
+        args.out,
+        config={"smiles": args.smiles, "weight_mode": args.weight_mode},
+        seed=args.seed,
+        input_paths=[args.artifact, args.atlas],
+    )
+    print(f"manifest -> {manifest}")
 
 
 if __name__ == "__main__":

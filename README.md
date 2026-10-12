@@ -68,6 +68,12 @@ before creating the environment and install the CUDA-matched build from
 corresponding `pytorch` and `pytorch-cuda` conda packages for the cluster's
 CUDA version.
 
+All pipeline scripts accept `--seed`. Training uses the configured scaffold
+split seed by default, and every script writes a `*_manifest.json` beside its
+output containing the seed, configuration, git commit, timestamp, and hashes
+of available input files. This makes offline reruns auditable and
+reproducible.
+
 ```bash
 pip install -e ".[dev]"
 python -m smilesbrain.data.fetch_atlas          # Hansen receptor atlas (open)

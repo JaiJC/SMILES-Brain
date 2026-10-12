@@ -22,12 +22,15 @@ from smilesbrain.config import load_receptors
 from smilesbrain.features import FingerprintConfig, featurize_many
 from smilesbrain.models.baseline import MaskedMultiTaskRidge
 from smilesbrain.splits import random_split, scaffold_split
+from smilesbrain.utils import set_global_seed, write_run_manifest
 
 
 def _load_labels(cfg_data: dict, receptor_keys: list[str]):
     path = Path(cfg_data["labels"])
     if path.exists():
-        table = pd.read_parquet(path) if path.suffix == ".parquet" else pd.read_csv(path, index_col=0)
+        table = (
+            pd.read_parquet(path) if path.suffix == ".parquet" else pd.read_csv(path, index_col=0)
+        )
         smiles = table.index.tolist()
         cols = [k for k in receptor_keys if k in table.columns]
         return smiles, table[cols].to_numpy(dtype=float), cols, False
@@ -58,15 +61,21 @@ def per_receptor_r2(y_true: np.ndarray, y_pred: np.ndarray, keys: list[str]) -> 
 def main() -> None:
     ap = argparse.ArgumentParser()
     ap.add_argument("--config", default="configs/affinity_baseline.yaml")
+    ap.add_argument("--seed", type=int, default=None)
     args = ap.parse_args()
     with open(args.config) as fh:
         cfg = yaml.safe_load(fh)
+    seed = cfg["split"]["seed"] if args.seed is None else args.seed
+    set_global_seed(seed)
 
     rc = load_receptors()
     fp = FingerprintConfig(**cfg["features"])
 
     smiles, Y, keys, synthetic = _load_labels(cfg["data"], rc.atlas_keys)
-    print(f"{'SYNTHETIC ' if synthetic else ''}labels: {len(smiles)} molecules x {len(keys)} receptors")
+    print(
+        f"{'SYNTHETIC ' if synthetic else ''}labels: "
+        f"{len(smiles)} molecules x {len(keys)} receptors"
+    )
 
     if synthetic:
         # labels already aligned to features via featurize_many above; re-featurise for clarity
@@ -111,6 +120,13 @@ def main() -> None:
         print(f"saved artifact -> {out}")
     report.to_csv(cfg["output"]["report"], index=False)
     print(f"saved report   -> {cfg['output']['report']}")
+    manifest = write_run_manifest(
+        out,
+        config={"config_file": args.config, "config": cfg},
+        seed=seed,
+        input_paths=[args.config, cfg["data"]["labels"]],
+    )
+    print(f"saved manifest -> {manifest}")
 
 
 if __name__ == "__main__":
