@@ -1,0 +1,26 @@
+model:
+  backend: gbdt
+  max_iter: 100
+  learning_rate: 0.05
+  max_leaf_nodes: 31
+  l2_regularization: 0.0
+  random_state: 0
+
+features:
+  n_bits: 2048
+  radius: 2
+
+data:
+  labels: data/labels.parquet
+  synthetic_n: 400
+
+split:
+  scheme: scaffold
+  test_frac: 0.2
+  validation_frac: 0.2
+  seed: 0
+
+output:
+  artifact: artifacts/affinity_gbdt.joblib
+  report: artifacts/affinity_gbdt_report.csv
+  comparison: artifacts/model_compare.csv

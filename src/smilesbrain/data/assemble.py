@@ -17,17 +17,55 @@ import pandas as pd
 from smilesbrain.config import load_receptors
 
 
-def assemble(affinity_dir: Path, config: str | None = None) -> pd.DataFrame:
+def merge_affinity_sources(
+    chembl: pd.DataFrame, pdsp: pd.DataFrame | None = None
+) -> pd.DataFrame:
+    """Median-collapse ChEMBL and PDSP rows without duplicate molecule labels."""
+    frames = [chembl.copy()]
+    frames[0]["source"] = "chembl"
+    if pdsp is not None and not pdsp.empty:
+        frames.append(pdsp.assign(source="pdsp"))
+    combined = pd.concat(frames, ignore_index=True)
+    combined = combined.dropna(subset=["canonical_smiles", "pchembl"])
+    combined = combined.drop_duplicates(
+        subset=["canonical_smiles", "pchembl", "source"]
+    )
+    return (
+        combined.groupby("canonical_smiles", as_index=False)
+        .agg(
+            pchembl=("pchembl", "median"),
+            source=("source", lambda values: "+".join(sorted(set(values)))),
+        )
+        .sort_values("canonical_smiles")
+        .reset_index(drop=True)
+    )
+
+
+def assemble(
+    affinity_dir: Path,
+    config: str | None = None,
+    merged_dir: Path | None = None,
+) -> pd.DataFrame:
     cfg = load_receptors(config)
+    merged_dir = merged_dir or affinity_dir.parent / "affinity_merged"
     merged: pd.DataFrame | None = None
     for rec in cfg.receptors:
         path = affinity_dir / f"{rec.atlas_key}.csv"
         if not path.exists():
             continue
-        df = pd.read_csv(path)[["canonical_smiles", "pchembl"]].rename(
-            columns={"pchembl": rec.atlas_key}
+        chembl = pd.read_csv(path)[["canonical_smiles", "pchembl"]]
+        pdsp_path = affinity_dir.parent / "affinity_pdsp" / path.name
+        pdsp = (
+            pd.read_csv(pdsp_path)[["canonical_smiles", "pchembl"]]
+            if pdsp_path.exists()
+            else None
         )
-        df = df.dropna(subset=["canonical_smiles"]).set_index("canonical_smiles")
+        source_merged = merge_affinity_sources(chembl, pdsp)
+        merged_dir.mkdir(parents=True, exist_ok=True)
+        source_merged.to_csv(merged_dir / path.name, index=False)
+        df = source_merged.rename(
+            columns={"pchembl": rec.atlas_key}
+        ).drop(columns=["source"]).set_index("canonical_smiles")
         merged = df if merged is None else merged.join(df, how="outer")
     if merged is None:
         raise FileNotFoundError(f"No per-receptor CSVs found in {affinity_dir}")

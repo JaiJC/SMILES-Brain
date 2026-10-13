@@ -1,7 +1,8 @@
 # Baseline affinity-model training config (scikit-learn Ridge, CPU).
 model:
-  backend: sklearn        # sklearn | torch
+  backend: sklearn        # sklearn | gbdt | torch | dmpnn
   alpha: 1.0              # ridge regularisation (sklearn)
+  alpha_grid: [0.01, 0.1, 1.0, 10.0, 100.0]
 
 features:
   n_bits: 2048
@@ -14,8 +15,10 @@ data:
 split:
   scheme: scaffold        # scaffold | random  (scaffold = held-out chemotypes, the honest test)
   test_frac: 0.2
+  validation_frac: 0.2
   seed: 0
 
 output:
   artifact: artifacts/affinity_baseline.joblib
   report: artifacts/affinity_baseline_report.csv
+  comparison: artifacts/model_compare.csv

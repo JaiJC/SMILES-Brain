@@ -35,7 +35,8 @@ PET_DIR = "data/PET_parcellated/scale100"
 KEY_ALIASES = {
     "5HT1a": "5HT1a", "5HT1b": "5HT1b", "5HT2a": "5HT2a", "5HT4": "5HT4", "5HT6": "5HT6",
     "5HTT": "5HTT", "A4B2": "A4B2", "CB1": "CB1", "D1": "D1", "D2": "D2", "DAT": "DAT",
-    "GABAa": "GABAa", "H3": "H3", "M1": "M1", "mGluR5": "mGluR5", "MU": "MU",
+    "GABAa": "GABAa", "GABAa-bz": "GABAa", "H3": "H3", "M1": "M1",
+    "mGluR5": "mGluR5", "MU": "MU",
     "NAT": "NAT", "NMDA": "NMDA", "VAChT": "VAChT",
 }
 

@@ -23,6 +23,11 @@ import pandas as pd
 
 from smilesbrain.config import load_receptors
 from smilesbrain.features import FingerprintConfig, morgan_fingerprint
+from smilesbrain.models.uncertainty import (
+    ensemble_prediction_stats,
+    flag_out_of_domain,
+    tanimoto_to_training_set,
+)
 from smilesbrain.projection import project_affinity
 from smilesbrain.utils import set_global_seed, write_run_manifest
 
@@ -36,17 +41,30 @@ def _load_atlas(path: Path, rc):
 
 def _load_model(path: Path, rc):
     if path.exists():
+        if path.suffix == ".pt":
+            from smilesbrain.models.dmpnn import MaskedDMPNNRegressor
+
+            return {
+                "model": MaskedDMPNNRegressor.load(path, rc.atlas_keys),
+                "keys": rc.atlas_keys,
+                "smiles_model": True,
+            }, False
         bundle = joblib.load(path)
-        return bundle["model"], bundle["fp"], bundle["keys"], False
+        return bundle, False
     # DEMO: fit a tiny synthetic model so predict runs without prior training.
-    from smilesbrain.data.synthetic import synthetic_smiles, synthetic_labels
+    from smilesbrain.data.synthetic import synthetic_labels, synthetic_smiles
     from smilesbrain.features import featurize_many
     from smilesbrain.models.baseline import MaskedMultiTaskRidge
     smiles = synthetic_smiles(300)
-    X, kept = featurize_many(smiles)
+    X, _kept = featurize_many(smiles)
     Y = synthetic_labels(X, rc.n_receptors, seed=1)
     model = MaskedMultiTaskRidge(receptor_keys=rc.atlas_keys).fit(X, Y)
-    return model, FingerprintConfig(), rc.atlas_keys, True
+    return {
+        "model": model,
+        "fp": FingerprintConfig(),
+        "keys": rc.atlas_keys,
+        "training_X": X,
+    }, True
 
 
 def main() -> None:
@@ -62,7 +80,8 @@ def main() -> None:
     set_global_seed(args.seed)
 
     rc = load_receptors()
-    model, fp, keys, demo_model = _load_model(args.artifact, rc)
+    bundle, demo_model = _load_model(args.artifact, rc)
+    model, fp, keys = bundle["model"], bundle.get("fp"), bundle["keys"]
     atlas, demo_atlas = _load_atlas(args.atlas, rc)
     if demo_model or demo_atlas:
         print("=" * 70)
@@ -72,11 +91,30 @@ def main() -> None:
         print("real atlas for genuine predictions.")
         print("=" * 70)
 
-    x = morgan_fingerprint(args.smiles, fp)
-    if x is None:
-        raise SystemExit(f"Could not parse SMILES: {args.smiles!r}")
-
-    pred_vec = model.predict(x[None, :])[0]
+    if bundle.get("smiles_model"):
+        pred_vec, uncertainty_vec = model.predict_with_uncertainty([args.smiles])
+        pred_vec = pred_vec[0]
+        uncertainty_vec = uncertainty_vec[0]
+        max_similarity = np.nan
+    else:
+        x = morgan_fingerprint(args.smiles, fp)
+        if x is None:
+            raise SystemExit(f"Could not parse SMILES: {args.smiles!r}")
+        if "models" in bundle:
+            ensemble = np.stack([member.predict(x[None, :]) for member in bundle["models"]])
+            pred_vec, uncertainty_vec = ensemble_prediction_stats(ensemble)
+            pred_vec = pred_vec[0]
+            uncertainty_vec = uncertainty_vec[0]
+        else:
+            pred_vec = model.predict(x[None, :])[0]
+            uncertainty_vec = np.full(len(keys), np.nan)
+        training_X = bundle.get("training_X")
+        max_similarity = (
+            tanimoto_to_training_set(x, training_X) if training_X is not None else np.nan
+        )
+    out_of_domain = (
+        flag_out_of_domain(max_similarity) if np.isfinite(max_similarity) else False
+    )
     affinity = {k: float(v) for k, v in zip(keys, pred_vec)}
 
     print(f"\nSMILES: {args.smiles}")
@@ -84,7 +122,18 @@ def main() -> None:
     for k in keys:
         v = affinity[k]
         bar = "" if np.isnan(v) else "#" * int(max(0, min(20, (v - 4) * 4)))
-        print(f"  {k:8s} {v:6.2f}  {bar}" if np.isfinite(v) else f"  {k:8s}   n/a")
+        uncertainty = uncertainty_vec[keys.index(k)]
+        suffix = f"+/- {uncertainty:.2f}" if np.isfinite(uncertainty) else "+/- n/a"
+        print(
+            f"  {k:8s} {v:6.2f}  {suffix}  {bar}"
+            if np.isfinite(v)
+            else f"  {k:8s}   n/a  {suffix}"
+        )
+    if np.isfinite(max_similarity):
+        domain_label = "OUT-OF-DOMAIN" if out_of_domain else "in-domain"
+        print(f"\napplicability domain: {domain_label} (max training Tanimoto {max_similarity:.3f})")
+    else:
+        print("\napplicability domain: unavailable (artifact has no training fingerprints)")
 
     result = project_affinity(affinity, atlas, weight_mode=args.weight_mode)
     scores = result.region_scores
