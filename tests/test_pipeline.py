@@ -10,7 +10,6 @@ import pytest
 
 from smilesbrain.config import load_receptors
 from smilesbrain.data.assemble import merge_affinity_sources
-from smilesbrain.data.fetch_atlas import _key_from_filename
 from smilesbrain.data.fetch_pdsp import download_database, normalize_pdsp
 from smilesbrain.data.synthetic import synthetic_atlas, synthetic_labels
 from smilesbrain.models.baseline import MaskedMultiTaskRidge
@@ -20,7 +19,7 @@ from smilesbrain.models.uncertainty import (
     flag_out_of_domain,
     tanimoto_to_training_set,
 )
-from smilesbrain.projection import project_affinity
+from smilesbrain.projection import parse_direction_spec, project_affinity
 from smilesbrain.validation import map_correlation, spin_test
 
 
@@ -33,10 +32,6 @@ def test_config_has_19_receptors(rc):
     assert rc.n_receptors == 19
     assert len(set(rc.atlas_keys)) == 19
     assert rc.n_regions == 100
-
-
-def test_atlas_filename_aliases_cover_gabaa_bz():
-    assert _key_from_filename("GABAa-bz_flumazenil_hc16_norgaard.csv") == "GABAa"
 
 
 def test_affinity_source_merge_is_idempotent():
@@ -152,6 +147,150 @@ def test_projection_drops_nan_receptors(rc):
     res = project_affinity(affinity, atlas, weight_mode="raw")
     assert all(not np.isnan(affinity[k]) for k in res.receptors_used)
     assert np.isfinite(res.region_scores).all()
+
+
+def test_projection_defaults_to_magnitude_only_with_note(rc):
+    atlas = synthetic_atlas(rc, seed=5)
+    affinity = {k: float(i) for i, k in enumerate(rc.atlas_keys)}
+    res = project_affinity(affinity, atlas)
+    assert res.directions == {}
+    assert "Magnitude-only" in res.note
+    same = project_affinity(affinity, atlas, direction={})
+    np.testing.assert_allclose(res.region_scores, same.region_scores)
+
+
+@pytest.mark.parametrize("mode", ["raw", "zscore", "softmax"])
+def test_flipping_direction_flips_that_receptors_contribution(rc, mode):
+    atlas = synthetic_atlas(rc, seed=6)
+    affinity = {k: 4.0 + 0.3 * i for i, k in enumerate(rc.atlas_keys)}
+    all_agonist = {k: 1 for k in rc.atlas_keys}
+    base = project_affinity(affinity, atlas, weight_mode=mode, direction=all_agonist)
+    np.testing.assert_allclose(  # explicit all-agonist == magnitude-only
+        base.region_scores, project_affinity(affinity, atlas, weight_mode=mode).region_scores
+    )
+    flipped_key = "D2"
+    flipped = project_affinity(
+        affinity, atlas, weight_mode=mode, direction={**all_agonist, flipped_key: -1}
+    )
+    contribution = base.weights[flipped_key] * atlas[flipped_key].to_numpy()
+    np.testing.assert_allclose(flipped.region_scores, base.region_scores - 2 * contribution)
+    assert flipped.weights[flipped_key] == -base.weights[flipped_key]
+    assert flipped.direction_unknown == []
+    # flipping every receptor negates the whole map
+    all_antagonist = project_affinity(
+        affinity, atlas, weight_mode=mode, direction={k: -1 for k in rc.atlas_keys}
+    )
+    np.testing.assert_allclose(all_antagonist.region_scores, -base.region_scores)
+
+
+def test_partial_direction_reports_unknown_receptors(rc):
+    atlas = synthetic_atlas(rc, seed=7)
+    affinity = {k: float(i) for i, k in enumerate(rc.atlas_keys)}
+    res = project_affinity(affinity, atlas, direction={"D2": -1})
+    assert res.directions == {"D2": -1}
+    assert "D2" not in res.direction_unknown and len(res.direction_unknown) == rc.n_receptors - 1
+    assert "unknown" in res.note
+
+
+def test_direction_validation(rc):
+    atlas = synthetic_atlas(rc, seed=8)
+    affinity = {k: 1.0 * i for i, k in enumerate(rc.atlas_keys)}
+    with pytest.raises(ValueError, match="not in the atlas"):
+        project_affinity(affinity, atlas, direction={"D2x": -1})
+    with pytest.raises(ValueError, match=r"\+1 \(agonist\) or -1"):
+        project_affinity(affinity, atlas, direction={"D2": 0.5})
+    assert parse_direction_spec("5HT2a=+1, D2=antagonist,DAT=-1") == {
+        "5HT2a": 1, "D2": -1, "DAT": -1}
+    with pytest.raises(ValueError):
+        parse_direction_spec("D2")
+
+
+def test_both_parcellation_configs_load_and_wire_n_regions():
+    base = load_receptors()
+    assert base.parcellation.key == "schaefer100" and base.n_regions == 100
+    for key, n, subcortex in [("schaefer100", 100, False), ("schaefer400", 400, False),
+                              ("cammoun033", 83, True)]:
+        rc = load_receptors(parcellation=key)
+        assert (rc.n_regions, rc.parcellation.subcortex) == (n, subcortex)
+        assert rc.atlas_keys == base.atlas_keys  # receptor order independent of parcellation
+        scale = rc.parcellation.pet_dir.rsplit("/", 1)[-1].removeprefix("scale")
+        assert rc.parcellation.atlas_file == f"data/atlas/density_scale{scale}.csv"
+    with pytest.raises(ValueError, match="unknown parcellation"):
+        load_receptors(parcellation="nope")
+
+
+@pytest.mark.parametrize("key", ["schaefer100", "schaefer400", "cammoun033"])
+def test_projection_runs_unchanged_on_each_parcellation(key):
+    rc = load_receptors(parcellation=key)
+    atlas = synthetic_atlas(rc, seed=1)
+    affinity = {k: float(i) for i, k in enumerate(rc.atlas_keys)}
+    res = project_affinity(affinity, atlas, direction={"D2": -1})
+    assert res.region_scores.shape == (rc.n_regions,)
+    assert len(atlas) == rc.n_regions
+
+
+def _fake_atlas_downloads(monkeypatch, n=83):
+    """Patch the network calls in fetch_atlas; record which files were requested."""
+    from smilesbrain.data import fetch_atlas
+
+    asked = []
+
+    def fake_vec(fname, pet_dir):
+        asked.append((pet_dir, fname))
+        return np.random.default_rng(abs(hash(fname)) % 2**31).normal(size=n)
+
+    monkeypatch.setattr(fetch_atlas, "_download_vector", fake_vec)
+    return fetch_atlas, asked
+
+
+def test_fetch_atlas_uses_parcellation_dir_and_requests_only_selected_tracers(monkeypatch):
+    fetch_atlas, asked = _fake_atlas_downloads(monkeypatch, n=83)
+    df = fetch_atlas.build_atlas(parcellation="cammoun033")
+    assert df.shape == (83, 19)
+    assert {d for d, _ in asked} == {"data/PET_parcellated/scale033"}
+    requested = {f.removesuffix(".csv") for _, f in asked}
+    expected = {stem for maps in fetch_atlas.TRACER_SELECTION.values() for stem, _ in maps}
+    assert requested == expected
+    # the tracers the paper discards must never be downloaded
+    for discarded in ("D2_raclopride_hc7_alakurtti", "GABAa_flumazenil_hc6_dukart",
+                      "5HT2a_mdl_hc3_talbot", "DAT_fepe2i_hc6_sasaki", "NAT_MRB_hc10_hesse",
+                      "5HT1a_cumi_hc8_beliveau", "MU_carfentanil_hc39_turtonen"):
+        assert discarded not in requested
+
+
+def test_fetch_atlas_rejects_wrong_region_count(monkeypatch):
+    fetch_atlas, _ = _fake_atlas_downloads(monkeypatch, n=100)
+    with pytest.raises(RuntimeError, match="expects n_regions=83"):
+        fetch_atlas.build_atlas(parcellation="cammoun033")
+
+
+def test_atlas_filename_mapping_selects_paper_tracers_and_drops_the_rest():
+    from smilesbrain.data.fetch_atlas import _key_from_filename
+
+    assert _key_from_filename("GABAa-bz_flumazenil_hc16_norgaard.csv") == "GABAa"
+    assert _key_from_filename("D2_flb457_hc37_smith.csv") == "D2"
+    assert _key_from_filename("D2_raclopride_hc7_alakurtti.csv") is None   # n=7, discarded
+    assert _key_from_filename("GABAa_flumazenil_hc6_dukart.csv") is None   # n=6, discarded
+
+
+def test_multi_tracer_receptors_are_sample_size_weighted(monkeypatch):
+    """D2 combines FLB457 n=37 and n=55; the n=55 map must carry more weight."""
+    from smilesbrain.data import fetch_atlas
+
+    a = np.linspace(-1, 1, 100)
+    b = np.roll(a, 25)
+    vecs = {"D2_flb457_hc37_smith.csv": a, "D2_flb457_hc55_sandiego.csv": b}
+    monkeypatch.setattr(fetch_atlas, "_download_vector",
+                        lambda f, d: vecs.get(f, np.random.default_rng(1).normal(size=100)))
+    col = fetch_atlas.build_atlas(parcellation="schaefer100")["D2"].to_numpy()
+    assert abs(np.corrcoef(col, b)[0, 1]) > abs(np.corrcoef(col, a)[0, 1])
+
+
+def test_atlas_columns_are_zscored(monkeypatch):
+    fetch_atlas, _ = _fake_atlas_downloads(monkeypatch, n=100)
+    df = fetch_atlas.build_atlas(parcellation="schaefer100")
+    assert np.allclose(df.mean(axis=0), 0, atol=1e-8)
+    assert np.allclose(df.std(axis=0, ddof=0), 1, atol=1e-6)
 
 
 def test_spin_test_naive_warns_and_returns_p(rc):

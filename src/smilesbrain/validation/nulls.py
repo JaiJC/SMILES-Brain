@@ -6,7 +6,8 @@ spherical centroid and which hemisphere it belongs to. We compute permutation *i
 drug, which is both correct and fast.
 
 This leans on `netneurotools.stats.gen_spinsamples` (the standard implementation). It is an
-optional dependency: if it is missing, we raise with install guidance rather than silently
+optional dependency (`netneurotools>=0.2.5,<0.3`; 0.3 removed `stats.gen_spinsamples`): if it
+is missing or too new, we raise with install guidance rather than silently
 falling back to an invalid null. The naive permutation null lives in `spin.py` and is for
 smoke tests only.
 """
@@ -33,10 +34,15 @@ def gen_spins_from_coords(
         from netneurotools import stats as nnstats
     except ImportError as exc:  # pragma: no cover - env dependent
         raise RuntimeError(
-            "netneurotools is required to generate spin nulls "
-            "(`pip install netneurotools`). The naive permutation null in spin.py is for "
+            "netneurotools>=0.2.5,<0.3 is required to generate spin nulls "
+            "(`pip install 'netneurotools>=0.2.5,<0.3'`). The naive permutation null in spin.py is for "
             "smoke tests only and must not be reported as a spin test."
         ) from exc
+    if not hasattr(nnstats, "gen_spinsamples"):  # pragma: no cover - env dependent
+        raise RuntimeError(
+            "installed netneurotools has no stats.gen_spinsamples (removed in 0.3); "
+            "install 'netneurotools>=0.2.5,<0.3'."
+        )
     spins = nnstats.gen_spinsamples(coords, hemiid, n_rotate=n_perm, seed=seed)
     return np.asarray(spins, dtype=int)
 

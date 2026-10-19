@@ -19,10 +19,28 @@ class DrugMap:
     source: str
     expected_sign: str | None = None          # "positive" | "negative" | None
     measured_profile: str | None = None        # optional affinity CSV path
+    direction: dict[str, int] | None = None    # receptor -> +1 agonist / -1 antagonist
 
     @property
     def expected_sign_value(self) -> int | None:
         return {"positive": 1, "negative": -1}.get(self.expected_sign or "", None)
+
+
+def _parse_direction(raw, drug: str) -> dict[str, int] | None:
+    """Validate a catalog `direction` block: receptor -> +1 / -1, nothing else."""
+    if raw is None:
+        return None
+    if not isinstance(raw, dict) or not raw:
+        raise ValueError(f"{drug}: `direction` must be a non-empty mapping of receptor -> +1/-1")
+    out = {}
+    for key, value in raw.items():
+        if value not in (1, -1):
+            raise ValueError(
+                f"{drug}: direction for {key!r} must be +1 (agonist) or -1 (antagonist), "
+                f"got {value!r}"
+            )
+        out[str(key)] = int(value)
+    return out
 
 
 def load_catalog(path: str | Path | None = None) -> list[DrugMap]:
@@ -40,6 +58,7 @@ def load_catalog(path: str | Path | None = None) -> list[DrugMap]:
                 source=str(m.get("source", "")),
                 expected_sign=m.get("expected_sign"),
                 measured_profile=m.get("measured_profile"),
+                direction=_parse_direction(m.get("direction"), str(m["drug"])),
             )
         )
     return out

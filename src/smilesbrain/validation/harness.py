@@ -45,8 +45,9 @@ def evaluate_one(
     perm_indices: np.ndarray | None = None,
     weight_mode: str = "zscore",
     expected_sign: int | None = None,
+    direction: dict[str, int] | None = None,
 ) -> DrugResult:
-    proj = project_affinity(affinity, atlas, weight_mode=weight_mode)
+    proj = project_affinity(affinity, atlas, weight_mode=weight_mode, direction=direction)
     stat = spin_test(proj.region_scores, observed_map, perm_indices=perm_indices)
     sign_ok = None if expected_sign is None else bool(np.sign(stat["r"]) == np.sign(expected_sign))
     return DrugResult(
