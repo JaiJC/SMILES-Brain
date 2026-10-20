@@ -177,8 +177,8 @@ antagonists, which is the opposite of the pre-registered expectation.
 ### 2. But the architecture is not the problem -- the ceiling is high
 
 Fitting the 19 density maps to each observed map (ridge, scored on held-out regions) gives a
-**median cross-validated r of 0.43 (OLS) to 0.67 (ridge), spin-significant for 8/8 drugs**,
-ranging to r = 0.81 for LSD. So a weighted sum of receptor densities *can* reproduce these
+a **cross-validated r of 0.46 to 0.81 (median 0.67), spin-significant for 7 of 8 drugs**
+(methylphenidate is the exception at p = 0.106). So a weighted sum of receptor densities *can* reproduce these
 maps well. The atlas is rich enough and the maps are not noise.
 
 ### 3. The weight vector is what fails -- and affinity is no better than chance

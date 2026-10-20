@@ -31,8 +31,8 @@ Read this before the pitch above. On 8 drugs with open, group-level CBF response
 (`docs/VALIDATION.md`, `artifacts/validation_report.md`):
 
 1. A weighted sum of the 19 receptor density maps **can** reproduce these drug maps well:
-   cross-validated ceiling r up to 0.81, spin-significant for 8/8 drugs. The atlas and the
-   maps are fine.
+   cross-validated ceiling r of 0.46-0.81, spin-significant for 7 of 8 drugs. The atlas and
+   the maps are fine.
 2. But **binding affinity is not that weight**. Shuffling which receptor holds which measured
    affinity value does *as well or better* than the true assignment: **0 of 6 testable drugs
    beat that receptor-permutation null**.
