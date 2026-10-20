@@ -150,6 +150,78 @@ surfaced two real fixes: 4D NIfTIs with a single trailing volume are now accepte
 `--zero-as-missing` flag is confirmed necessary (5HT2a scored r=0.72 without it, 0.998 with).
 The LSD drug map was checked and is unaffected by that choice (r=0.9999 either way).
 
+## What the diagnostics establish (2026-10-20)
+
+Three diagnostics in `smilesbrain.validation.diagnostics` localise the failure. Run them with
+`scripts/evaluate.py --report`; they are in the report.
+
+### 1. The observed maps mostly do not resemble the drug's own target
+
+Correlating each observed map with each single receptor density map, before any model:
+
+| drug | best pre-registered target | r | rank among 19 | strongest receptor overall |
+|---|---|---:|---:|---|
+| methylphenidate | NAT | -0.257 | 5 | A4B2 (-0.49) |
+| ketamine | NMDA | +0.213 | 6 | GABAa (+0.43) |
+| risperidone | 5HT2a | -0.281 | 7 | VAChT (+0.47) |
+| haloperidol | D1 | +0.572 | 2 | H3 (+0.57) |
+| LSD | 5HT1a | -0.485 | 3 | MU (-0.60) |
+| escitalopram | 5HTT | +0.089 | 14 | MU (-0.57) |
+| olanzapine | D2 | +0.565 | 2 | 5HT1a (+0.63) |
+| midazolam | GABAa | -0.225 | 16 | 5HT4 (-0.63) |
+
+Midazolam's GABA-A ranks 16th of 19; LSD's 5-HT2A ranks 18th. The two drugs whose target does
+rank near the top (haloperidol, olanzapine) correlate **positively** with it, though both are
+antagonists, which is the opposite of the pre-registered expectation.
+
+### 2. But the architecture is not the problem -- the ceiling is high
+
+Fitting the 19 density maps to each observed map (ridge, scored on held-out regions) gives a
+**median cross-validated r of 0.43 (OLS) to 0.67 (ridge), spin-significant for 8/8 drugs**,
+ranging to r = 0.81 for LSD. So a weighted sum of receptor densities *can* reproduce these
+maps well. The atlas is rich enough and the maps are not noise.
+
+### 3. The weight vector is what fails -- and affinity is no better than chance
+
+The decisive test. Keep the drug's measured affinity values and the real atlas; shuffle only
+**which receptor holds which value**. If the true assignment carries information, it should
+beat its own shuffles.
+
+| drug | receptors | true r | mean \|r\| of shuffled assignments | p |
+|---|---:|---:|---:|---:|
+| methylphenidate | 12 | +0.019 | 0.200 | 0.946 |
+| ketamine | 14 | +0.064 | 0.149 | 0.714 |
+| risperidone | 15 | -0.346 | 0.248 | 0.274 |
+| haloperidol | 16 | -0.051 | 0.216 | 0.868 |
+| LSD | 4 | +0.013 | 0.332 | 1.000 |
+| olanzapine | 8 | +0.101 | 0.258 | 0.806 |
+
+**0 of 6 drugs beat the receptor-permutation null.** For most, the true assignment does *worse*
+than the average shuffle. This holds for Tier A, i.e. with **lab-measured** affinity, so it is
+not a failure of the affinity model.
+
+### Why we do not just read the fitted weights instead
+
+The 19 density maps are collinear: mean |r| = 0.34, 47 of 171 pairs above 0.5, first principal
+component 37.5% of variance. Bootstrapping the fitted weights gives between-resample
+correlations as low as 0.0, so individual coefficients are not interpretable even where the
+fitted predictions are stable. The permutation null in (3) never reads a coefficient, which is
+exactly why it is the test to trust here.
+
+### The conclusion
+
+> Receptor density maps can explain drug-induced CBF maps well (ceiling r up to 0.81), but
+> **binding affinity is not the weight that does it**. Knowing which receptor a drug binds, and
+> how tightly, predicts these maps no better than randomly reassigning those same affinities
+> among receptors.
+
+This is a negative result for the project's central premise, and it is not fixable by a better
+affinity model: it already fails with measured affinity. What it does not rule out is that some
+*other* transform of the affinity profile -- occupancy at clinical dose, efficacy, direction,
+weighted by PK -- is the right weight. The high ceiling says such a weight vector exists; the
+permutation null says plain affinity is not it. That is the question worth attacking next, and
+it is the same inverse problem as the roadmap's inverse-design task.
+
 ## Results: first real run (2026-10-20, `artifacts/validation_report.md`)
 
 Schaefer-100, 1000 spin rotations, z-score weights, magnitude-only projection, ridge baseline

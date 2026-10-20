@@ -173,11 +173,21 @@ def main() -> None:
     elif backend == "dmpnn":
         from smilesbrain.models.dmpnn import MaskedDMPNNRegressor
 
+        dmpnn_tr, dmpnn_val = _inner_split(
+            smiles, tr, cfg["split"], seed
+        )
         model = MaskedDMPNNRegressor(
             receptor_keys=keys,
             **{k: v for k, v in cfg["model"].items() if k != "backend"},
         )
-        model.fit([smiles[i] for i in tr], Y[tr])
+        model.fit(
+            [smiles[i] for i in dmpnn_tr],
+            Y[dmpnn_tr],
+            validation_smiles=[smiles[i] for i in dmpnn_val],
+            validation_Y=Y[dmpnn_val],
+            test_smiles=[smiles[i] for i in te],
+            test_Y=Y[te],
+        )
         pred = model.predict([smiles[i] for i in te])
     else:
         raise ValueError(f"unknown backend {backend}")
@@ -191,7 +201,19 @@ def main() -> None:
         receptor.atlas_key for receptor in rc.receptors if not receptor.sparse
     }
     mean_r2 = report.loc[report["receptor"].isin(non_sparse), "r2"].mean(skipna=True)
+    # A plain mean is dominated by receptors with a handful of test molecules (5HT4 n~25,
+    # VAChT n~5), where R^2 can be large and negative. Report metrics that are not at the
+    # mercy of those, so model comparisons mean something.
+    well_sampled = report[report["n_test"] >= 200]
+    weights = report["n_test"].where(report["r2"].notna(), 0)
+    weighted_r2 = (
+        float((report["r2"].fillna(0) * weights).sum() / weights.sum()) if weights.sum() else np.nan
+    )
+    mean_r2_well_sampled = well_sampled["r2"].mean(skipna=True)
     print(f"\nmean R^2 over non-sparse receptors: {mean_r2:.3f}")
+    print(f"mean R^2 over receptors with n_test >= 200 (k={len(well_sampled)}): "
+          f"{mean_r2_well_sampled:.3f}")
+    print(f"n-weighted mean R^2 over all receptors: {weighted_r2:.3f}")
     if selected_alpha is not None:
         print(f"selected alpha: {selected_alpha:g}")
 
@@ -211,6 +233,8 @@ def main() -> None:
             {
                 "backend": backend,
                 "mean_r2_non_sparse": mean_r2,
+                "mean_r2_well_sampled": mean_r2_well_sampled,
+                "mean_r2_n_weighted": weighted_r2,
                 "mean_r2_all": report["r2"].mean(skipna=True),
                 "n_test": len(te),
                 "alpha": selected_alpha,

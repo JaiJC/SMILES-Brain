@@ -28,7 +28,7 @@ from smilesbrain.models.uncertainty import (
     flag_out_of_domain,
     tanimoto_to_training_set,
 )
-from smilesbrain.projection import project_affinity
+from smilesbrain.projection import parse_direction_spec, project_affinity
 from smilesbrain.utils import set_global_seed, write_run_manifest
 
 
@@ -71,7 +71,13 @@ def main() -> None:
     ap = argparse.ArgumentParser()
     ap.add_argument("--smiles", required=True)
     ap.add_argument("--artifact", default="artifacts/affinity_baseline.joblib", type=Path)
-    ap.add_argument("--atlas", default="data/atlas/density_scale100.csv", type=Path)
+    ap.add_argument("--parcellation", default=None,
+                    help="key under `parcellations` in configs/receptors.yaml")
+    ap.add_argument("--atlas", default=None, type=Path,
+                    help="default: the parcellation's atlas_file")
+    ap.add_argument("--direction", default=None,
+                    help='functional direction per receptor, e.g. "5HT2a=+1,D2=-1" '
+                         "(+1 agonist, -1 antagonist); omit for magnitude-only")
     ap.add_argument("--weight-mode", default="zscore", choices=["raw", "zscore", "softmax"])
     ap.add_argument("--out", default="artifacts/prediction.csv", type=Path)
     ap.add_argument("--top", type=int, default=10)
@@ -79,7 +85,9 @@ def main() -> None:
     args = ap.parse_args()
     set_global_seed(args.seed)
 
-    rc = load_receptors()
+    rc = load_receptors(parcellation=args.parcellation)
+    args.atlas = args.atlas or Path(rc.parcellation.atlas_file)
+    direction = parse_direction_spec(args.direction) if args.direction else None
     bundle, demo_model = _load_model(args.artifact, rc)
     model, fp, keys = bundle["model"], bundle.get("fp"), bundle["keys"]
     atlas, demo_atlas = _load_atlas(args.atlas, rc)
@@ -135,9 +143,10 @@ def main() -> None:
     else:
         print("\napplicability domain: unavailable (artifact has no training fingerprints)")
 
-    result = project_affinity(affinity, atlas, weight_mode=args.weight_mode)
+    result = project_affinity(affinity, atlas, weight_mode=args.weight_mode, direction=direction)
     scores = result.region_scores
     print(f"\nreceptors used in projection: {', '.join(result.receptors_used)}")
+    print(f"direction: {result.note}")
 
     order = np.argsort(scores)[::-1]
     print(f"\ntop {args.top} regions (predicted strongest effect):")
@@ -150,7 +159,8 @@ def main() -> None:
     print(f"\nper-region scores -> {args.out}")
     manifest = write_run_manifest(
         args.out,
-        config={"smiles": args.smiles, "weight_mode": args.weight_mode},
+        config={"smiles": args.smiles, "weight_mode": args.weight_mode,
+                "parcellation": rc.parcellation.key, "direction": direction},
         seed=args.seed,
         input_paths=[args.artifact, args.atlas],
     )

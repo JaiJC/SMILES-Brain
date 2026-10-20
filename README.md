@@ -24,10 +24,38 @@ with a **structure-to-affinity model**, unlocking two things nobody has shipped 
 1. **Zero-shot molecules** — predict a brain map for a compound with no binding data.
 2. **Inverse design** — "light up region X, spare region Y → which molecules fit?"
 
+## Validation status: the central premise does not hold on the data we have
+
+Read this before the pitch above. On 8 drugs with open, group-level CBF response maps
+(Schaefer-100, 1000 spin rotations), three diagnostics give a consistent answer
+(`docs/VALIDATION.md`, `artifacts/validation_report.md`):
+
+1. A weighted sum of the 19 receptor density maps **can** reproduce these drug maps well:
+   cross-validated ceiling r up to 0.81, spin-significant for 8/8 drugs. The atlas and the
+   maps are fine.
+2. But **binding affinity is not that weight**. Shuffling which receptor holds which measured
+   affinity value does *as well or better* than the true assignment: **0 of 6 testable drugs
+   beat that receptor-permutation null**.
+3. This is measured with **lab affinity**, not predicted, so a better affinity model does not
+   fix it. (For the record the model work was done anyway: GBDT 0.387 > ridge 0.367 >
+   D-MPNN 0.247 mean held-out R² on a scaffold split.)
+
+So the honest claim today is: *the receptor-density basis is expressive enough, and finding
+the transform from a molecule to the right weight vector is an open problem.* Affinity
+magnitude is not it. The repo is built so that question can be attacked and the answer
+checked -- which is the point of the harness, the pre-registered directions and the nulls.
+
 ## Honest limitations (read before trusting any output)
 
-- Receptor **density** says where a drug *can* act, not how much drug arrives (pharmacokinetics)
-  or whether it is an **agonist vs. antagonist**. Affinity ≠ functional effect.
+- Receptor **density** says where a drug *can* act, not how much drug arrives (pharmacokinetics).
+  Affinity ≠ functional effect: by default the projection is **magnitude-only** and treats every
+  bound receptor as if the molecule were an agonist. If you know the direction, pass it
+  (`--direction "5HT2a=+1,D2=-1"` or `project_affinity(..., direction=...)`; +1 agonist, −1
+  antagonist) and the map reflects it. Receptors left out of `direction` stay magnitude-only
+  and are reported as such. Directions are never predicted — you supply them.
+- Results can be robustness-checked on other parcellations (`--parcellation`: `schaefer100`,
+  `schaefer400`, and `cammoun033`, which adds subcortex). Spin tests apply to cortical
+  parcellations only; subcortical parcels cannot be spun on the sphere.
 - Predicted maps are hypotheses for prioritisation, **not** clinical or preclinical claims.
 - Validation is correlational against a small set of open drug-response maps.
 
@@ -77,6 +105,7 @@ reproducible.
 ```bash
 pip install -e ".[dev]"
 python -m smilesbrain.data.fetch_atlas          # Hansen receptor atlas (open)
+python -m smilesbrain.data.fetch_atlas --parcellation schaefer400   # alternative parcellation
 python -m smilesbrain.data.fetch_affinity        # ChEMBL + PDSP Ki training data
 python scripts/train_affinity.py --config configs/affinity_baseline.yaml
 python scripts/predict.py --smiles "CN1CCC[C@H]1c1cccnc1"  # nicotine example

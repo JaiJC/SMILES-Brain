@@ -28,3 +28,4 @@ venv/
 slurm/logs/
 *.out
 *.err
+data/validation/

@@ -9,6 +9,10 @@ data:
   labels: data/labels.parquet
   synthetic_n: 100
 
+features:
+  n_bits: 2048
+  radius: 2
+
 split:
   scheme: scaffold
   test_frac: 0.2

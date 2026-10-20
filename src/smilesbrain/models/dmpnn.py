@@ -53,7 +53,15 @@ class MaskedDMPNNRegressor:
     checkpoint_path: Path | None = None
     checkpoint_paths: list[Path] | None = None
 
-    def fit(self, smiles: list[str], Y: np.ndarray) -> MaskedDMPNNRegressor:
+    def fit(
+        self,
+        smiles: list[str],
+        Y: np.ndarray,
+        validation_smiles: list[str] | None = None,
+        validation_Y: np.ndarray | None = None,
+        test_smiles: list[str] | None = None,
+        test_Y: np.ndarray | None = None,
+    ) -> MaskedDMPNNRegressor:
         _require_chemprop()
         if Y.shape != (len(smiles), len(self.receptor_keys)):
             raise ValueError("SMILES and target matrix dimensions do not match")
@@ -65,14 +73,35 @@ class MaskedDMPNNRegressor:
         frame = pd.DataFrame(Y, columns=self.receptor_keys)
         frame.insert(0, "smiles", smiles)
         frame.to_csv(data_path, index=False)
+        validation_path = None
+        test_path = None
+        if (validation_smiles is None) != (validation_Y is None):
+            raise ValueError("validation_smiles and validation_Y must be provided together")
+        if (test_smiles is None) != (test_Y is None):
+            raise ValueError("test_smiles and test_Y must be provided together")
+        if validation_smiles is not None:
+            validation_path = work_path / "validation.csv"
+            validation_frame = pd.DataFrame(validation_Y, columns=self.receptor_keys)
+            validation_frame.insert(0, "smiles", validation_smiles)
+            validation_frame.to_csv(validation_path, index=False)
+        if test_smiles is not None:
+            test_path = work_path / "test.csv"
+            test_frame = pd.DataFrame(test_Y, columns=self.receptor_keys)
+            test_frame.insert(0, "smiles", test_smiles)
+            test_frame.to_csv(test_path, index=False)
         save_dir = work_path / "run"
         command = [
             _chemprop_command("chemprop_train"), "--data_path", str(data_path),
-            "--dataset_type", "regression", "--split_type", "random",
-            "--split_sizes", "0.8", "0.1", "0.1", "--epochs", str(self.epochs),
+            "--dataset_type", "regression", "--epochs", str(self.epochs),
             "--ensemble_size", str(self.ensemble_size), "--seed", str(self.seed),
             "--pytorch_seed", str(self.seed), "--save_dir", str(save_dir), "--quiet",
         ]
+        if validation_path is not None:
+            command += ["--separate_val_path", str(validation_path)]
+        if test_path is not None:
+            command += ["--separate_test_path", str(test_path)]
+        else:
+            command += ["--split_type", "random", "--split_sizes", "0.9", "0.1", "0.0"]
         if self.device == "cpu":
             command.append("--no_cuda")
         env = os.environ.copy()

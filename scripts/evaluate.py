@@ -114,7 +114,9 @@ def _write_report(args, rc, atlas, catalog, observed, perms, demo: bool) -> None
         if side.exists():
             n_subjects[entry.drug] = json.loads(side.read_text()).get("n_subjects")
 
-    from smilesbrain.validation.report import dmpnn_refit, gbdt_refit, ridge_refit
+    from smilesbrain.validation.report import (
+        build_diagnostics, dmpnn_refit, gbdt_refit, label_keys, ridge_refit,
+    )
 
     keys = bundle["keys"]
     alpha = getattr(bundle["model"], "alpha", 1.0)
@@ -127,7 +129,14 @@ def _write_report(args, rc, atlas, catalog, observed, perms, demo: bool) -> None
     )
     meta = {"parcellation": rc.parcellation.key, "n_regions": rc.n_regions,
             "weight_mode": args.weight_mode, "seed": args.seed}
-    md = build_markdown(rows, meta)
+    diag = None
+    if not args.no_diagnostics:
+        print("running diagnostics (target ranking, ceiling, receptor-permutation null)...")
+        keys_kept = label_keys(labels.index.tolist())
+        diag = build_diagnostics(catalog, observed, atlas, labels, keys_kept, labels,
+                                 perm_indices=perms, weight_mode=args.weight_mode,
+                                 n_perm=args.n_perm_receptor)
+    md = build_markdown(rows, meta, diag)
     args.report_out.parent.mkdir(parents=True, exist_ok=True)
     fig = plot_report(rows, args.report_out.with_suffix(".png"))
     args.report_out.write_text(md + f"\n![per-drug agreement]({fig.name})\n")
@@ -159,6 +168,10 @@ def main() -> None:
     ap.add_argument("--labels", default="data/labels.parquet", type=Path,
                     help="measured-affinity label table (used by --report)")
     ap.add_argument("--report-out", default="artifacts/validation_report.md", type=Path)
+    ap.add_argument("--no-diagnostics", action="store_true",
+                    help="skip the target-ranking / ceiling / permutation-null diagnostics")
+    ap.add_argument("--n-perm-receptor", type=int, default=5000,
+                    help="permutations for the receptor-permutation null")
     ap.add_argument("--zero-shot-backend", default="sklearn", choices=["sklearn", "gbdt", "dmpnn"],
                     help="model refit per drug for tier B (dmpnn is slow: one training run "
                          "per drug)")

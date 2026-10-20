@@ -28,10 +28,22 @@ class Receptor:
 
 
 @dataclass(frozen=True)
+class Parcellation:
+    key: str
+    name: str
+    n_regions: int
+    pet_dir: str
+    atlas_file: str
+    spins_file: str
+    subcortex: bool = False
+
+
+@dataclass(frozen=True)
 class ReceptorConfig:
     receptors: tuple[Receptor, ...]
     parcellation_name: str
     n_regions: int
+    parcellation: Parcellation | None = None
 
     @property
     def atlas_keys(self) -> list[str]:
@@ -50,7 +62,27 @@ class ReceptorConfig:
         return self.atlas_keys.index(atlas_key)
 
 
-def load_receptors(path: str | Path | None = None) -> ReceptorConfig:
+def _load_parcellation(raw: dict, key: str | None) -> Parcellation:
+    available = raw["parcellations"]
+    key = key or raw["parcellation"]
+    if key not in available:
+        raise ValueError(f"unknown parcellation {key!r}; available: {sorted(available)}")
+    p = available[key]
+    return Parcellation(
+        key=key,
+        name=str(p["name"]),
+        n_regions=int(p["n_regions"]),
+        pet_dir=str(p["pet_dir"]),
+        atlas_file=str(p["atlas_file"]),
+        spins_file=str(p["spins_file"]),
+        subcortex=bool(p.get("subcortex", False)),
+    )
+
+
+def load_receptors(
+    path: str | Path | None = None, parcellation: str | None = None
+) -> ReceptorConfig:
+    """Load the receptor list and one parcellation (default: the config's `parcellation`)."""
     path = Path(path) if path is not None else _DEFAULT_CONFIG
     with open(path) as fh:
         raw = yaml.safe_load(fh)
@@ -72,9 +104,10 @@ def load_receptors(path: str | Path | None = None) -> ReceptorConfig:
         dupes = {k for k in keys if keys.count(k) > 1}
         raise ValueError(f"Duplicate atlas_key(s) in receptor config: {sorted(dupes)}")
 
-    parc = raw["parcellation"]
+    parc = _load_parcellation(raw, parcellation)
     return ReceptorConfig(
         receptors=receptors,
-        parcellation_name=str(parc["name"]),
-        n_regions=int(parc["n_regions"]),
+        parcellation_name=parc.name,
+        n_regions=parc.n_regions,
+        parcellation=parc,
     )

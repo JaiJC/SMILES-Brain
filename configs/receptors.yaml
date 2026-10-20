@@ -30,6 +30,39 @@ receptors:
   - {atlas_key: NMDA,   name: "NMDA (GluN2B proxy)",            uniprot: Q13224, system: glutamate, complex: true}
   - {atlas_key: VAChT,  name: "Vesicular ACh transporter",      uniprot: Q16572, system: acetylcholine, sparse: true}
 
-parcellation:
-  name: Schaefer2018_100Parcels_7Networks
-  n_regions: 100
+# Functional direction (agonist +1 / antagonist -1) is a property of a molecule at a receptor,
+# not of the receptor, so there is no per-receptor default here. Supply it per molecule via
+# `project_affinity(..., direction={"5HT2a": 1, "D2": -1})` or `--direction "5HT2a=+1,D2=-1"`
+# on scripts/predict.py. With none supplied, projection is magnitude-only (see project.py).
+
+# Parcellations the density atlas can be built on. `parcellation` selects the default; every
+# consumer reads n_regions from the selected entry, never a literal.
+#   pet_dir:      folder of parcellated PET vectors in netneurolab/hansen_receptors.
+#   atlas_file:   where fetch_atlas writes the (region x receptor) matrix.
+#   spins_file:   where spin permutations for this parcellation live (see make_spins.py).
+#   subcortex:    true if the parcellation includes subcortical regions.
+parcellation: schaefer100
+
+parcellations:
+  schaefer100:
+    name: Schaefer2018_100Parcels_7Networks
+    n_regions: 100
+    subcortex: false
+    pet_dir: data/PET_parcellated/scale100
+    atlas_file: data/atlas/density_scale100.csv
+    spins_file: data/atlas/spins_scale100.npy
+  schaefer400:
+    name: Schaefer2018_400Parcels_7Networks
+    n_regions: 400
+    subcortex: false
+    pet_dir: data/PET_parcellated/scale400
+    atlas_file: data/atlas/density_scale400.csv
+    spins_file: data/atlas/spins_scale400.npy
+  # Lausanne/Cammoun 2012 scale 33: 68 cortical + 15 subcortical/brainstem regions.
+  cammoun033:
+    name: Cammoun2012_scale033
+    n_regions: 83
+    subcortex: true
+    pet_dir: data/PET_parcellated/scale033
+    atlas_file: data/atlas/density_scale033.csv
+    spins_file: data/atlas/spins_scale033.npy

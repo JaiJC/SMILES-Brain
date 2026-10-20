@@ -355,7 +355,94 @@ def _table(rows: list[TierRow], tier: str) -> list[str]:
     return head + body + [foot, ""]
 
 
-def build_markdown(rows: list[TierRow], meta: dict) -> str:
+def build_diagnostics(catalog, observed, atlas, labels, keys_kept, labels_kept,
+                      perm_indices=None, weight_mode="zscore", n_perm=5000) -> dict:
+    """Run the three localising diagnostics for every drug with an observed map."""
+    from smilesbrain.validation.diagnostics import (
+        architecture_ceiling,
+        atlas_collinearity,
+        receptor_permutation_null,
+        target_receptor_ranking,
+    )
+
+    out = {"collinearity": atlas_collinearity(atlas), "rows": []}
+    for entry in catalog:
+        if entry.drug not in observed:
+            continue
+        obs = observed[entry.drug]
+        profile, _ = measured_affinity(labels_kept, keys_kept, entry.smiles)
+        out["rows"].append({
+            "drug": entry.drug,
+            "target": target_receptor_ranking(entry.drug, obs, atlas, entry.direction,
+                                              perm_indices),
+            "ceiling": architecture_ceiling(entry.drug, obs, atlas, perm_indices),
+            "perm": receptor_permutation_null(entry.drug, profile, obs, atlas,
+                                              n_perm=n_perm, weight_mode=weight_mode),
+        })
+    return out
+
+
+def _diagnostics_section(diag: dict) -> list[str]:
+    if not diag or not diag["rows"]:
+        return []
+    c = diag["collinearity"]
+    L = ["## Diagnostics - where the pipeline succeeds and where it fails", "",
+         "A spin test says whether a prediction matched; it does not say which step is at "
+         "fault when it did not. These three localise it.", "",
+         "### 1. Does the observed map resemble the drug's own target receptor?", "",
+         "Correlation of each observed map with each single receptor density map, before any "
+         "model. `rank` is where the drug's best pre-registered target sits among all "
+         f"{c['n_pairs'] and len(diag['rows'][0]['target'].ranking)} receptors, by |r|.", "",
+         "| drug | best target | r | rank | spin p | strongest receptor overall |",
+         "|---|---|---:|---:|---:|---|"]
+    for row in diag["rows"]:
+        t = row["target"]
+        top, top_r = t.ranking[0]
+        L.append(f"| {t.drug} | {t.best_target or 'n/a'} | {t.r:+.3f} | "
+                 f"{t.rank if t.rank else 'n/a'}/{t.n_receptors} | {t.p:.3f} | {top} ({top_r:+.2f}) |")
+    L += ["", "### 2. Ceiling: the best any weighting of this atlas could do", "",
+          "Oracle, not a result. The weights are fit to the observed map itself (ridge, "
+          "collinearity-aware) and scored on held-out regions. This is what a perfect affinity "
+          "vector would be competing against. `weight stability` is the mean correlation "
+          "between bootstrap weight vectors.", "",
+          "| drug | in-sample r (overfit) | cross-validated r | spin p | weight stability |",
+          "|---|---:|---:|---:|---:|"]
+    for row in diag["rows"]:
+        k = row["ceiling"]
+        L.append(f"| {k.drug} | {k.r_in_sample:.3f} | {k.r_cv:.3f} | {k.p_cv:.3f} | "
+                 f"{k.weight_stability:.2f} |")
+    med = np.median([r["ceiling"].r_cv for r in diag["rows"]])
+    sig = sum(r["ceiling"].p_cv < 0.05 for r in diag["rows"])
+    L += ["", f"Median cross-validated ceiling r = **{med:.3f}**, spin-significant for "
+          f"{sig}/{len(diag['rows'])} drugs.", ""]
+    L += ["### 3. Does it matter which receptor holds which affinity?", "",
+          "The decisive test of the claim. Keeps the drug's measured affinity *values* and the "
+          "real atlas, and shuffles only which receptor each value belongs to. Immune to the "
+          "collinearity that makes fitted weights uninterpretable, because it never reads a "
+          "coefficient.", "",
+          r"| drug | receptors | true r | mean \|r\| of shuffled assignments | p |",
+          "|---|---:|---:|---:|---:|"]
+    n_beat = n_tested = 0
+    for row in diag["rows"]:
+        pn = row["perm"]
+        if pn is None:
+            L.append(f"| {row['drug']} | <3 measured | - | - | - |")
+            continue
+        n_tested += 1
+        n_beat += pn.p < 0.05
+        L.append(f"| {pn.drug} | {pn.n_receptors} | {pn.r:+.3f} | {pn.null_mean_abs_r:.3f} | "
+                 f"{pn.p:.3f} |")
+    L += ["", f"**{n_beat}/{n_tested} drugs beat the receptor-permutation null at p < 0.05.**", "",
+          f"Why the fitted weights cannot simply be read off instead: the {len(diag['rows'][0]['target'].ranking)} "
+          f"density maps are collinear (mean |r| = {c['mean_abs_r']:.2f}; "
+          f"{c['pairs_above_0.5']}/{c['n_pairs']} pairs above 0.5; first principal component "
+          f"{c['pc1_variance']:.0%} of variance). Many different weight vectors fit about "
+          "equally well, which is why the ceiling in (2) is high while the bootstrap weight "
+          "stability beside it is low.", ""]
+    return L
+
+
+def build_markdown(rows: list[TierRow], meta: dict, diag: dict | None = None) -> str:
     L: list[str] = []
     L += ["# SMILES-Brain validation report", "",
           f"Generated {datetime.now(timezone.utc).strftime('%Y-%m-%d %H:%M UTC')} · commit `{_git_commit()}` · "
@@ -404,6 +491,9 @@ def build_markdown(rows: list[TierRow], meta: dict) -> str:
         L += ["", "The nearest-Tanimoto column is the honest caveat: removing a scaffold does not remove close "
               "analogues with a different scaffold, so \"zero-shot\" here means *held-out chemotype*, "
               "not *no similar training molecules*.", ""]
+
+    if diag:
+        L += _diagnostics_section(diag)
 
     L += ["## Limitations", "",
           f"- **n = {len({r.drug for r in rows})} drugs.** Per-drug p-values are the evidence; pooled claims are not "
