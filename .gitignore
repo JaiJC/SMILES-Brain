@@ -29,3 +29,6 @@ slurm/logs/
 *.out
 *.err
 data/validation/
+
+# macOS
+.DS_Store

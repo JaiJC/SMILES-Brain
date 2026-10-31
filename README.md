@@ -1,6 +1,9 @@
 # SMILES → Brain
 
-**Predict the whole-brain action map of a molecule from its chemical structure alone — no lab assay, no scan, no animal required.**
+**Predict a molecule's receptor-binding profile from its chemical structure, and project it onto
+PET receptor densities as an *exploratory* brain map.** The profile prediction matches a
+nearest-analogue lookup on held-out scaffolds. The brain map is **not** validated: see
+"Validation status" below.
 
 You type a SMILES string. The model predicts the molecule's binding affinity across 19
 neurotransmitter receptors/transporters, then projects that receptor-affinity vector onto
@@ -24,32 +27,20 @@ with a **structure-to-affinity model**, unlocking two things nobody has shipped 
 1. **Zero-shot molecules** — predict a brain map for a compound with no binding data.
 2. **Inverse design** — "light up region X, spare region Y → which molecules fit?"
 
-## Validation status: the central premise does not hold on the data we have
+## Validation status (full write-up: `docs/REPORT.md`)
 
-Read this before the pitch above. On 8 drugs with open, group-level CBF response maps
-(Schaefer-100, 1000 spin rotations), three diagnostics give a consistent answer
-(`docs/VALIDATION.md`, `artifacts/validation_report.md`):
+| Claim | Evidence | Status |
+|---|---|---|
+| Structure -> receptor profile on held-out scaffolds | within-molecule rho +0.52 vs +0.15 (receptor-mean baseline), but +0.49 for a nearest-analogue kNN baseline (`docs/results/profile_eval.md`) | **Supported vs a molecule-blind baseline; no advantage over kNN** |
+| Receptor densities can explain drug CBF maps | cross-validated r 0.46-0.81, 7 of 8 spin-significant | Supported |
+| Binding affinity is the weight that does it | 0 of 6 drugs beat a receptor-shuffle null (lab affinity, so not a model problem) | **Not supported** |
+| Occupancy + learned shared receptor gains does | pre-registered; 0 of 6 beat the null; criterion not met (`docs/results/learned_gains_report.md`) | **Not supported** (rules out strong effects only, 6 drugs) |
+| Predicted brain map matches real drug maps (zero-shot) | 1 of 8 drugs survives multiple-testing correction | **Not supported** |
 
-1. A weighted sum of the 19 receptor density maps **can** reproduce these drug maps well:
-   cross-validated ceiling r of 0.46-0.81, spin-significant for 7 of 8 drugs. The atlas and
-   the maps are fine.
-2. But **binding affinity is not that weight**. Shuffling which receptor holds which measured
-   affinity value does *as well or better* than the true assignment: **0 of 6 testable drugs
-   beat that receptor-permutation null**.
-3. This is measured with **lab affinity**, not predicted, so a better affinity model does not
-   fix it. The measured baseline comparison is GBDT 0.387 > Ridge 0.367 on a scaffold
-   split; the production D-MPNN result is intentionally not reported until its CUDA/SLURM
-   run completes.
-
-So the honest claim today is: *the receptor-density basis is expressive enough, and finding
-the transform from a molecule to the right weight vector is an open problem.* Affinity
-magnitude is not it. The repo is built so that question can be attacked and the answer
-checked -- which is the point of the harness, the pre-registered directions and the nulls.
-
-**Second test (pre-registered, run 2026-10-31): not supported.** Occupancy plus *learned,
-shared receptor gains* does not rescue affinity as a weight: 0 of 6 drugs beat the
-receptor-shuffle null (`docs/PREREGISTRATION.md`, `docs/results/learned_gains_report.md`). With
-only 6 evaluable drugs it rules out strong effects, not weak ones.
+So the honest product today is a receptor-profile predictor (as good as nearest-analogue
+lookup) with uncertainty and out-of-domain flags; the brain map is a labelled hypothesis view. The repo is built so that
+better data can re-open the question: the tests, nulls, pre-registration and power tool are in
+place (`docs/PREREGISTRATION.md`, `scripts/lodo_power.py`).
 
 ## Honest limitations (read before trusting any output)
 

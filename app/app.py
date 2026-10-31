@@ -28,14 +28,16 @@ EXAMPLES = {
 
 LIMITATIONS = """
 **Read before trusting anything below.**
+- **The affinity profile is partly validated; the brain map is not.** On held-out scaffolds the
+  model ranks a molecule's receptors well above a molecule-blind baseline but no better than
+  copying its nearest training analogues (see `docs/REPORT.md`). Check the applicability-domain flag.
 - On 8 drugs with open CBF maps, **binding affinity did not predict the observed brain maps
   better than randomly reassigning the same affinities among receptors** (0 of 6 testable
-  drugs beat that null; see `docs/REPORT.md`). Receptor densities *can* explain the maps; the
-  affinity-to-weight step is the open problem.
+  drugs beat that null), and a second pre-registered test also failed. Treat the map as a
+  hypothesis view only.
 - Receptor density is where a drug *can* act, not where it *does* (no pharmacokinetics).
 - Direction (agonist vs antagonist) is never predicted; by default every receptor is treated
   as if the molecule were an agonist.
-- This is a hypothesis generator for prioritisation, not a clinical or preclinical claim.
 """
 
 

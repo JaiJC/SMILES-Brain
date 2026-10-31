@@ -34,9 +34,9 @@ generalisation numbers you can defend in an interview.
 - Some receptors (VAChT, GABA-A subunit, NMDA) have sparse or proxy ligand data.
 - Spin test must use real spherical nulls before any p-value is reported.
 
-## Next (after the sprint)
-- [x] Pre-register and build the learned-gains leave-one-drug-out test (`docs/PREREGISTRATION.md`).
-- [x] Run `scripts/learned_gains.py` on the real maps: criterion NOT met (0/6 beat the null).
-- [ ] ~~Production D-MPNN on GPU~~ not worth it: the bottleneck is the affinity->map transform,
-      not the affinity model.
-- [ ] More/better observed maps (more drugs, second lab, PET occupancy) or a reframed question.
+## Outcome and next steps
+- [x] Learned-gains test pre-registered and run: criterion NOT met (0/6 beat the null).
+- [x] Receptor-profile evaluation on held-out scaffolds: supported (`docs/results/profile_eval.md`).
+- [x] Data-availability probe of NeuroVault: few candidates (`docs/results/neurovault_scouting.md`).
+- [ ] Pre-register and strengthen the profile claim (time split, nearest-neighbour baseline, GPU D-MPNN).
+- [ ] More/better observed maps (more drugs, second lab, PET occupancy) before any new brain-map claim.
