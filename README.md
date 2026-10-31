@@ -135,11 +135,14 @@ affinity *pattern* matches the receptor weights solved from a target regional pr
 structures are **unvalidated hypotheses**, and given the validation result they are not evidence
 of a regional effect. The full write-up is `docs/REPORT.md`.
 
-## Data (all open)
+## Data (open, but not all permissive)
 
-- **Receptor atlas:** `netneurolab/hansen_receptors` (PET, 19 receptors/transporters, Schaefer-100).
-- **Affinity training:** ChEMBL + PDSP Ki database.
-- **Validation maps:** open drug-response maps (OpenNeuro / published parcellated maps).
+- **Receptor atlas:** `netneurolab/hansen_receptors` (PET, 19 receptors, Schaefer-100). **CC BY-NC-SA 4.0:
+  non-commercial.** Downloaded at run time, not redistributed here.
+- **Affinity training:** ChEMBL (CC BY-SA 3.0) + PDSP Ki database. Derived tables are tracked in `data/`.
+- **Validation maps:** open drug-response maps (Dukart 2018 supplement, NeuroVault 1083), gitignored.
+
+Licences, what is redistributed, and what is unverified: `DATA_LICENSES.md`. Code: MIT (`LICENSE`).
 
 ## Status
 

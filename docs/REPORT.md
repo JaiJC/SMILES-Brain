@@ -164,6 +164,9 @@ why, and 7 says what would be needed.
 
 ## 6. Limitations
 
+- **Licensing.** The receptor atlas is CC BY-NC-SA 4.0 (non-commercial), so the projection stage and
+  everything validated against it carry that restriction; the label tables are ChEMBL/PDSP-derived
+  (CC BY-SA 3.0 for ChEMBL). See `DATA_LICENSES.md`; this is not legal advice.
 - **n = 8 drugs, seven from one paper** (one lab, one ASL protocol), all CBF; only 6 evaluable
   for measured-affinity tests. Strong claims in either direction need more drugs.
 - Cortex only (100 parcels); several of these drugs act subcortically.
