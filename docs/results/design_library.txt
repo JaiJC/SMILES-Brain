@@ -1,0 +1,10 @@
+# 8 catalog drugs + nicotine (a demo library; not a screening collection)
+COC(=O)C(c1ccccc1)C1CCCCN1
+CNC1(c2ccccc2Cl)CCCCC1=O
+CC1=C(C(=O)N2CCCCC2=N1)CCN3CCC(CC3)C4=NOC5=C4C=CC(=C5)F
+O=C(CCCN1CCC(O)(c2ccc(Cl)cc2)CC1)c1ccc(F)cc1
+CCN(CC)C(=O)[C@H]1CN([C@@H]2Cc3c[nH]c4cccc(c34)C2=C1)C
+CN(C)CCC[C@@]1(c2ccc(F)cc2)OCc2cc(C#N)ccc21
+Cc1cc2c(s1)Nc1ccccc1N=C2N1CCN(C)CC1
+Cc1ncc2n1-c1ccc(Cl)cc1C(c1ccccc1F)=NC2
+CN1CCC[C@H]1c1cccnc1
