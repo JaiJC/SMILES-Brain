@@ -1,0 +1,102 @@
+# Catalog of observed drug-response brain maps used to validate predicted maps.
+#
+# Each entry is a drug with (a) a SMILES so the Stage-1 model can predict its affinity
+# profile zero-shot, and (b) a pointer to an observed, parcellated response map. The observed
+# maps are NOT shipped in this repo -- they come from published datasets and must be fetched
+# and parcellated to the same Schaefer-100 space (see docs and each `source`). Drop the
+# resulting one-value-per-region CSV at `file`.
+#
+# `measure`:      what the observed map quantifies (CBF change, BOLD, occupancy, etc.).
+# `expected_sign`: optional prior on the predicted-vs-observed correlation direction. Reuptake
+#                  inhibitors tend to anti-correlate with their target-transporter density,
+#                  direct agonists tend to correlate -- so sign is informative, not noise.
+# `measured_profile`: optional PDSP/literature affinity CSV, to reproduce the classic
+#                  *measured-affinity* projection as a sanity check before trusting predictions.
+#
+# This catalog is intentionally small and curated from pharmacological-imaging literature
+# (e.g. Dukart et al. 2018; Luppi et al. 2023). Expand it as you locate more open maps.
+
+# `direction` (added 2026-10-20, PRE-REGISTERED): functional effect of this drug at each
+# receptor -- +1 agonist / positive modulator, -1 antagonist / blocker. Written from standard
+# pharmacology references and committed BEFORE the direction-aware analysis was run; the
+# magnitude-only results were already known at that point, but no direction was chosen by
+# looking at a correlation. Only receptors whose direction is well established are listed;
+# the direction-aware analysis uses exactly these receptors and no others.
+
+maps:
+  - drug: methylphenidate
+    smiles: "COC(=O)C(c1ccccc1)C1CCCCN1"
+    measure: CBF
+    expected_sign: negative          # DAT/NET reuptake inhibitor
+    source: "Dukart et al. 2018, Sci Rep, suppl. Zscore_treatmentMap_Methylphenidate (n=18, 30 mg)"
+    file: data/validation/methylphenidate.csv
+    # DAT/NET reuptake blocker (binds and blocks the transporter).
+    direction: {DAT: -1, NAT: -1}
+
+  - drug: ketamine
+    smiles: "CNC1(c2ccccc2Cl)CCCCC1=O"
+    measure: CBF
+    expected_sign: positive          # NMDA antagonist, complex downstream effects
+    source: "Dukart et al. 2018, Sci Rep, suppl. Zscore_treatmentMap_Ketamine (n=26, 0.25 mg/kg + infusion)"
+    file: data/validation/ketamine.csv
+    # Non-competitive NMDA open-channel blocker.
+    direction: {NMDA: -1}
+
+  - drug: risperidone
+    smiles: "CC1=C(C(=O)N2CCCCC2=N1)CCN3CCC(CC3)C4=NOC5=C4C=CC(=C5)F"
+    measure: CBF
+    expected_sign: negative          # D2/5-HT2A antagonist
+    source: "Dukart et al. 2018, Sci Rep, suppl. Zscore_treatmentMap_Risperidone2mg (n=21, 2 mg)"
+    file: data/validation/risperidone.csv
+    # Potent 5-HT2A and D2 antagonist.
+    direction: {D2: -1, 5HT2a: -1}
+
+  - drug: haloperidol
+    smiles: "O=C(CCCN1CCC(O)(c2ccc(Cl)cc2)CC1)c1ccc(F)cc1"
+    measure: CBF
+    expected_sign: negative          # D2 antagonist
+    source: "Dukart et al. 2018, Sci Rep, suppl. Zscore_treatmentMap_Haloperidol (n=21, 3 mg)"
+    file: data/validation/haloperidol.csv
+    # Potent D2 antagonist; weaker D1 antagonist.
+    direction: {D2: -1, D1: -1}
+
+  - drug: LSD
+    smiles: "CCN(CC)C(=O)[C@H]1CN([C@@H]2Cc3c[nH]c4cccc(c34)C2=C1)C"
+    measure: CBF
+    expected_sign: positive          # 5-HT2A agonist
+    source: "Carhart-Harris et al. 2016, PNAS; NeuroVault collection 1083, image 14479 'CBF Difference' (T map, n=15)"
+    file: data/validation/lsd.csv
+    # Partial agonist at 5-HT2A (principal), 5-HT1A, 5-HT1B and D2.
+    direction: {5HT2a: 1, 5HT1a: 1, 5HT1b: 1, D2: 1}
+
+  # --- Added 2026-10-20 from the same Dukart et al. 2018 supplement (3 of its 7 drugs were
+  # unused). `expected_sign` for each was fixed from pharmacology BEFORE any correlation was
+  # computed, using the same convention as the entries above: receptor antagonists and
+  # reuptake inhibitors anti-correlate with their target's density, direct agonists correlate.
+  - drug: escitalopram
+    smiles: "CN(C)CCC[C@@]1(c2ccc(F)cc2)OCc2cc(C#N)ccc21"
+    measure: CBF
+    expected_sign: negative          # SERT reuptake inhibitor (same logic as methylphenidate)
+    source: "Dukart et al. 2018, Sci Rep, suppl. Zscore_treatmentMap_Escitalopram (n=18, 20 mg)"
+    file: data/validation/escitalopram.csv
+    # Selective SERT reuptake inhibitor.
+    direction: {5HTT: -1}
+
+  - drug: olanzapine
+    smiles: "Cc1cc2c(s1)Nc1ccccc1N=C2N1CCN(C)CC1"
+    measure: CBF
+    expected_sign: negative          # D2 / 5-HT2A antagonist, like risperidone and haloperidol
+    source: "Dukart et al. 2018, Sci Rep, suppl. Zscore_treatmentMap_Olanzapine (n=21, 7.5 mg)"
+    file: data/validation/olanzapine.csv
+    # D2, 5-HT2A and M1 antagonist.
+    direction: {D2: -1, 5HT2a: -1, M1: -1}
+
+  - drug: midazolam
+    smiles: "Cc1ncc2n1-c1ccc(Cl)cc1C(c1ccccc1F)=NC2"
+    measure: CBF
+    expected_sign: negative          # GABA-A positive allosteric modulator: potentiates
+                                     # inhibition, so GABA-A-rich regions lose CBF
+    source: "Dukart et al. 2018, Sci Rep, suppl. Zscore_treatmentMap_Midazolam (n=26, 0.03 mg/kg + infusion)"
+    file: data/validation/midazolam.csv
+    # Benzodiazepine-site positive allosteric modulator: potentiates GABA-A.
+    direction: {GABAa: 1}

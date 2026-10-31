@@ -1,0 +1,25 @@
+model:
+  backend: dmpnn
+  device: cpu
+  epochs: 30
+  ensemble_size: 1
+  seed: 0
+
+data:
+  labels: data/labels.parquet
+  synthetic_n: 100
+
+features:
+  n_bits: 2048
+  radius: 2
+
+split:
+  scheme: scaffold
+  test_frac: 0.2
+  validation_frac: 0.2
+  seed: 0
+
+output:
+  artifact: artifacts/affinity_dmpnn.pt
+  report: artifacts/affinity_dmpnn_report.csv
+  comparison: artifacts/model_compare.csv

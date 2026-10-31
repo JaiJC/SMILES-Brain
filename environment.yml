@@ -1,0 +1,31 @@
+name: smilesbrain
+channels:
+  - conda-forge
+dependencies:
+  - python=3.10
+  - pip
+  # Core runtime dependencies.
+  - numpy=1.26.4
+  - pandas=2.2.3
+  - scipy=1.14.1
+  - scikit-learn=1.5.2
+  - joblib=1.4.2
+  - pyyaml=6.0.2
+  - tqdm=4.67.1
+  - requests=2.32.3
+  # Optional chemistry, modelling, validation, and visualisation extras.
+  - rdkit=2024.03.5
+  - pytorch=2.5.1
+  - matplotlib=3.9.2
+  - nibabel=5.3.2
+  - pytest=8.3.4
+  - ruff=0.8.4
+  - pip:
+      # These optional packages are installed from PyPI because compatible
+      # Python 3.10 conda-forge builds are not available.
+      - netneurotools==0.2.5
+      - chemprop==1.7.1
+
+  # The pytorch package above is a CPU-capable baseline. On HPC systems with
+  # CUDA, remove it and install the CUDA-matched build from pytorch.org, for
+  # example: conda install pytorch pytorch-cuda=<CUDA_VERSION> -c pytorch -c nvidia.

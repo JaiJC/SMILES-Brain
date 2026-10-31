@@ -1,0 +1,68 @@
+# The 19 neurotransmitter receptors/transporters in the Hansen et al. (2022) PET atlas.
+#
+# Each entry links an atlas map to the protein target used to pull structure-activity
+# (affinity) training data. `atlas_key` matches the map name in the
+# netneurolab/hansen_receptors parcellated CSVs. `uniprot` is the human target used to
+# query ChEMBL/PDSP. `system` groups by neurotransmitter.
+#
+# Flags encode known caveats:
+#   complex: true  -> multi-subunit channel; single-subunit affinity is a proxy.
+#   sparse:  true  -> little public ligand data expected; predictions less reliable.
+
+receptors:
+  - {atlas_key: 5HT1a,  name: "Serotonin 5-HT1A",               uniprot: P08908, system: serotonin}
+  - {atlas_key: 5HT1b,  name: "Serotonin 5-HT1B",               uniprot: P28222, system: serotonin}
+  - {atlas_key: 5HT2a,  name: "Serotonin 5-HT2A",               uniprot: P28223, system: serotonin}
+  - {atlas_key: 5HT4,   name: "Serotonin 5-HT4",                uniprot: Q13639, system: serotonin}
+  - {atlas_key: 5HT6,   name: "Serotonin 5-HT6",                uniprot: P50406, system: serotonin}
+  - {atlas_key: 5HTT,   name: "Serotonin transporter (SERT)",   uniprot: P31645, system: serotonin}
+  - {atlas_key: A4B2,   name: "Nicotinic a4b2",                 uniprot: P43681, system: acetylcholine, complex: true}
+  - {atlas_key: CB1,    name: "Cannabinoid CB1",                uniprot: P21554, system: cannabinoid}
+  - {atlas_key: D1,     name: "Dopamine D1",                    uniprot: P21728, system: dopamine}
+  - {atlas_key: D2,     name: "Dopamine D2",                    uniprot: P14416, system: dopamine}
+  - {atlas_key: DAT,    name: "Dopamine transporter (DAT)",     uniprot: Q01959, system: dopamine}
+  - {atlas_key: GABAa,  name: "GABA-A (BZD site)",              uniprot: P14867, system: gaba, complex: true}
+  - {atlas_key: H3,     name: "Histamine H3",                   uniprot: Q9Y5N1, system: histamine}
+  - {atlas_key: M1,     name: "Muscarinic M1",                  uniprot: P11229, system: acetylcholine}
+  - {atlas_key: mGluR5, name: "Metabotropic glutamate 5",       uniprot: P41594, system: glutamate}
+  - {atlas_key: MU,     name: "Mu-opioid",                      uniprot: P35372, system: opioid}
+  - {atlas_key: NAT,    name: "Norepinephrine transporter",     uniprot: P23975, system: norepinephrine}
+  - {atlas_key: NMDA,   name: "NMDA (GluN2B proxy)",            uniprot: Q13224, system: glutamate, complex: true}
+  - {atlas_key: VAChT,  name: "Vesicular ACh transporter",      uniprot: Q16572, system: acetylcholine, sparse: true}
+
+# Functional direction (agonist +1 / antagonist -1) is a property of a molecule at a receptor,
+# not of the receptor, so there is no per-receptor default here. Supply it per molecule via
+# `project_affinity(..., direction={"5HT2a": 1, "D2": -1})` or `--direction "5HT2a=+1,D2=-1"`
+# on scripts/predict.py. With none supplied, projection is magnitude-only (see project.py).
+
+# Parcellations the density atlas can be built on. `parcellation` selects the default; every
+# consumer reads n_regions from the selected entry, never a literal.
+#   pet_dir:      folder of parcellated PET vectors in netneurolab/hansen_receptors.
+#   atlas_file:   where fetch_atlas writes the (region x receptor) matrix.
+#   spins_file:   where spin permutations for this parcellation live (see make_spins.py).
+#   subcortex:    true if the parcellation includes subcortical regions.
+parcellation: schaefer100
+
+parcellations:
+  schaefer100:
+    name: Schaefer2018_100Parcels_7Networks
+    n_regions: 100
+    subcortex: false
+    pet_dir: data/PET_parcellated/scale100
+    atlas_file: data/atlas/density_scale100.csv
+    spins_file: data/atlas/spins_scale100.npy
+  schaefer400:
+    name: Schaefer2018_400Parcels_7Networks
+    n_regions: 400
+    subcortex: false
+    pet_dir: data/PET_parcellated/scale400
+    atlas_file: data/atlas/density_scale400.csv
+    spins_file: data/atlas/spins_scale400.npy
+  # Lausanne/Cammoun 2012 scale 33: 68 cortical + 15 subcortical/brainstem regions.
+  cammoun033:
+    name: Cammoun2012_scale033
+    n_regions: 83
+    subcortex: true
+    pet_dir: data/PET_parcellated/scale033
+    atlas_file: data/atlas/density_scale033.csv
+    spins_file: data/atlas/spins_scale033.npy
