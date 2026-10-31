@@ -40,3 +40,5 @@ generalisation numbers you can defend in an interview.
 - [x] Data-availability probe of NeuroVault: few candidates (`docs/results/neurovault_scouting.md`).
 - [ ] Pre-register and strengthen the profile claim (time split, nearest-neighbour baseline, GPU D-MPNN).
 - [ ] More/better observed maps (more drugs, second lab, PET occupancy) before any new brain-map claim.
+- [x] Label audit and design-screen demo committed (`docs/results/label_audit.md`, `design_screen_demo.md`).
+- [ ] GPU smoke test and production D-MPNN (needs a CUDA node; compare against the kNN baseline).

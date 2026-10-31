@@ -143,7 +143,9 @@ of a regional effect. The full write-up is `docs/REPORT.md`.
 
 ## Status
 
-Pipeline, validation harness, inverse-design screen/generator, demo app and figure regeneration are
-built and tested offline. Outstanding: the production D-MPNN run, the corrected eight-drug tier table,
-and a transform from affinity to weights that actually predicts drug maps. See `docs/REPORT.md` and
-`docs/ROADMAP.md`.
+Complete as a negative-result release. Built and tested: data pipeline, affinity models,
+projection, validation harness with spin nulls, pre-registered learned-gains test, receptor-profile
+evaluation, inverse-design screen and generator, demo app, CI (Python 3.10 and 3.12). Five of the
+seven definition-of-done items are met (`docs/REPORT.md`, section 5); the two that are not need a
+GPU. The scientific goal, a validated structure-to-brain-map predictor, is not achieved: see
+"Validation status" above. All results are under `docs/results/`.

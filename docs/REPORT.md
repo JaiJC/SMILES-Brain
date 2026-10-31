@@ -145,7 +145,24 @@ come from asking authors (Luppi 2023 and others) than from NeuroVault.
   structures are labelled `UNVALIDATED HYPOTHESIS`; the plausibility filter removes only
   peroxides and sulfur without S=O/S=N.
 
-## 5. Limitations
+## 5. Definition of done (from `docs/BUILD_PLAYBOOK.md`)
+
+| Item | Status | Evidence |
+|---|---|---|
+| `pytest -q` green without rdkit/torch/network | **Met** | CI green on Python 3.10 and 3.12 (restored workflow, run `41225372793`); 114 tests in the full environment, 85 in a bare one |
+| GPU smoke test green | **Not done** | needs a CUDA node; `slurm/train_dmpnn.sbatch` has the preflight but was never run |
+| Real atlas and labels fetched and audited, density per receptor reported | **Met** | atlas matches the paper at r = 1.0000; `docs/results/label_audit.md` (53,342 molecules, 7.2% density, every receptor at least 226 labels) |
+| D-MPNN beats baselines on a scaffold split, with uncertainty | **Not met** | uncertainty (ensemble + Tanimoto applicability domain) is built and tested; the only D-MPNN run (CPU, 30 epochs) scored 0.247 vs ridge 0.379 and GBDT 0.387; the production GPU run was not done |
+| Validation report: zero-shot, real maps, spin-tested, sign agreement, n and null stated | **Met** (result negative) | `docs/results/validation_report.md`, `learned_gains_report.md`, `validation_tiers.csv` |
+| Inverse-design screen ranks a library toward a target profile, reproducibly | **Met** (objective unvalidated) | `docs/results/design_screen_demo.md`; synthetic and real-artifact runs reproduce under a fixed seed |
+| A demo anyone can run, and a report stating limitations as plainly as results | **Met** | `streamlit run app/app.py` (DEMO banner when the model is absent); this report |
+
+Five of seven items are met. The two that are not need a GPU, and the D-MPNN one would also
+need to show a gain over a nearest-analogue baseline (3.1), which is not guaranteed. The
+scientific goal, a validated structure-to-brain-map predictor, is not achieved; 3.3-3.5 explain
+why, and 7 says what would be needed.
+
+## 6. Limitations
 
 - **n = 8 drugs, seven from one paper** (one lab, one ASL protocol), all CBF; only 6 evaluable
   for measured-affinity tests. Strong claims in either direction need more drugs.
@@ -159,7 +176,7 @@ come from asking authors (Luppi 2023 and others) than from NeuroVault.
 - Everything runs offline on synthetic data for testing; real-data numbers above were produced
   once on this repository's code and are reproducible with the commands below.
 
-## 6. Recommended next steps
+## 7. Recommended next steps
 
 1. **Ship the supported claim, stated precisely.** A scaffold-validated receptor-profile
    predictor with uncertainty and out-of-domain flags that matches a nearest-analogue lookup;
@@ -171,7 +188,7 @@ come from asking authors (Luppi 2023 and others) than from NeuroVault.
    baseline, and pre-register a confirmatory test on a time split or newly deposited ChEMBL
    data, restricted to molecules with nearest-training Tanimoto below 0.5 where the two differ.
 
-## 7. Reproduce
+## 8. Reproduce
 
 ```bash
 pip install -e ".[all]"
@@ -184,6 +201,8 @@ python scripts/evaluate.py --report --spins data/atlas/spins_scale100.npy   # 3.
 python scripts/learned_gains.py --spins data/atlas/spins_scale100.npy       # 3.4
 python scripts/lodo_power.py --n-drugs 6
 python scripts/scout_neurovault.py --out docs/results/neurovault_scouting.md  # 3.6
+python scripts/audit_labels.py --labels data/labels.parquet --out docs/results/label_audit.md
+python scripts/design_screen.py --smiles-file docs/results/design_library.txt --high-regions <ids> --low-regions <ids>
 python scripts/make_figures.py
 streamlit run app/app.py
 ```
