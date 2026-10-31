@@ -186,6 +186,18 @@ class TierRow:
     observed: np.ndarray = field(default=None, repr=False)
 
 
+def tier_rows_to_frame(rows: list[TierRow]) -> pd.DataFrame:
+    """Scalar columns of every TierRow (no per-region arrays), for scripts/make_figures.py."""
+    records = []
+    for r in rows:
+        rec = {k: v for k, v in vars(r).items() if k not in ("scores", "observed")}
+        rec["directed"] = (
+            ";".join(f"{k}={v:+d}" for k, v in sorted(r.directed.items())) if r.directed else ""
+        )
+        records.append(rec)
+    return pd.DataFrame(records)
+
+
 def ridge_refit(alpha: float, receptor_keys: list[str]):
     """Default zero-shot backend: refit the ridge baseline on the filtered training set."""
     from smilesbrain.models.baseline import MaskedMultiTaskRidge
@@ -330,7 +342,9 @@ def _table(rows: list[TierRow], tier: str) -> list[str]:
     sel = [r for r in rows if r.tier == tier]
     if not sel:
         return ["_No drugs in this tier (no observed map / no measured profile)._", ""]
-    null = lambda r: f"spin ({r.n_perm})" if r.spin else f"NAIVE permutation ({r.n_perm}) - not a spin test"
+    def null(r):
+        return f"spin ({r.n_perm})" if r.spin else f"NAIVE permutation ({r.n_perm}) - not a spin test"
+
     directed = tier.endswith("-dir")
     extra_h = " receptors (signed) |" if directed else " receptors used |"
     head = ["| drug | measure | n subj |" + extra_h + " r | spin p | BH p | null | expected sign | sign agrees |",
@@ -564,7 +578,8 @@ def plot_report(rows: list[TierRow], path: str | Path) -> Path:
         ax.spines["bottom"].set_color(GRID)
         ax.tick_params(colors=INK2, length=0, labelsize=8)
         ax.set_title(ptitle, color=INK, fontsize=10, loc="left", pad=6)
-    lo = min(a.get_ylim()[0] for a in axes); hi = max(a.get_ylim()[1] for a in axes)
+    lo = min(a.get_ylim()[0] for a in axes)
+    hi = max(a.get_ylim()[1] for a in axes)
     for a in axes:
         a.set_ylim(lo, hi)                      # one shared scale: panels are comparable
     for a in axes[1:]:

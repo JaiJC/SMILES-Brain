@@ -25,9 +25,8 @@ generalisation numbers you can defend in an interview.
   **This is the critical-path risk — do it first, in parallel with Week 1.**
 - [ ] Proper spin test via `neuromaps` spherical permutations.
 - [ ] Zero-shot eval: hold out whole drug classes; predict → project → correlate with real maps.
-- [ ] Inverse design mode: search ChEMBL/generated libraries for molecules matching a target
-      regional profile.
-- [ ] Web demo (type SMILES → 3D brain) + short writeup + 2-min video.
+- [x] Inverse design mode: library screen + mutation-based generator (unvalidated; see REPORT).
+- [x] Web demo (type SMILES → 3D brain) + write-up (`docs/REPORT.md`). 2-min video: not done.
 - [ ] Outreach: psychedelic/CNS drug-discovery teams; Hansen & Luppi labs.
 
 ## Known risks (state these openly)

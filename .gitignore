@@ -1,0 +1,31 @@
+# Data and artifacts are large / regenerable -- never commit them.
+data/affinity/
+data/atlas/
+data/*.parquet
+data/*.csv
+artifacts/
+*.joblib
+*.pt
+*.npy
+
+# Python
+__pycache__/
+*.py[cod]
+*.egg-info/
+.eggs/
+build/
+dist/
+.venv/
+venv/
+.ipynb_checkpoints/
+
+# Tooling
+.pytest_cache/
+.ruff_cache/
+.coverage
+
+# SLURM logs
+slurm/logs/
+*.out
+*.err
+data/validation/

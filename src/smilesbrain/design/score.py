@@ -61,13 +61,28 @@ def score_affinity(
     affinity: np.ndarray | list[float],
     target_profile: TargetProfile,
 ) -> float:
-    """Return a higher-is-better score for affinity matching solved receptor weights."""
+    """Return a higher-is-better score: how well an affinity *pattern* matches the weights.
+
+    The score is the Pearson correlation, across receptors, between the affinity vector and
+    the solved receptor weights, in [-1, 1]. It is deliberately invariant to the scale and
+    offset of both vectors: pChEMBL values live around 4-10 while least-squares weights are
+    unitless and near zero, so comparing them directly (e.g. mean squared error) just ranks
+    molecules by how *weakly* they bind. An affinity vector equal to the weights (or any
+    positive affine transform of them) scores 1.0.
+
+    Needs at least 3 receptors with finite affinity and weight and non-constant values on
+    both sides; otherwise the pattern is undefined and the score is -inf.
+    """
     values = np.asarray(affinity, dtype=float)
     weights = target_profile.receptor_weights
     if values.shape != weights.shape:
         raise ValueError(f"affinity must have shape {weights.shape}, got {values.shape}")
     finite = np.isfinite(values) & np.isfinite(weights)
-    if not finite.any():
+    if finite.sum() < 3:
         return float("-inf")
-    error = values[finite] - weights[finite]
-    return float(-np.mean(error**2))
+    a, w = values[finite], weights[finite]
+    a, w = a - a.mean(), w - w.mean()
+    denominator = np.linalg.norm(a) * np.linalg.norm(w)
+    if denominator < 1e-12:
+        return float("-inf")
+    return float(a @ w / denominator)

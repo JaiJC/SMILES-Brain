@@ -18,25 +18,9 @@ import numpy as np
 import pandas as pd
 
 from smilesbrain.config import load_receptors
-from smilesbrain.features import FingerprintConfig, morgan_fingerprint
-from smilesbrain.models.uncertainty import (
-    ensemble_prediction_stats,
-    flag_out_of_domain,
-    tanimoto_to_training_set,
-)
 from smilesbrain.design.score import fit_target_profile, score_affinity
-
-
-def _region_indices(spec: str | None, n_regions: int) -> list[int]:
-    if not spec:
-        return []
-    try:
-        indices = [int(value.strip()) for value in spec.split(",") if value.strip()]
-    except ValueError as exc:
-        raise ValueError("region lists must be comma-separated integers") from exc
-    if any(index < 0 or index >= n_regions for index in indices):
-        raise ValueError(f"region indices must be between 0 and {n_regions - 1}")
-    return sorted(set(indices))
+from smilesbrain.design.screen import high_low_target, predict_bundle, region_indices
+from smilesbrain.models.uncertainty import flag_out_of_domain
 
 
 def _load_candidates(path: Path | None, values: list[str]) -> list[str]:
@@ -49,33 +33,6 @@ def _load_candidates(path: Path | None, values: list[str]) -> list[str]:
     if not candidates:
         raise ValueError("provide --smiles or --smiles-file")
     return list(dict.fromkeys(candidates))
-
-
-def _predict(bundle: dict, smiles: list[str], keys: list[str]) -> tuple[np.ndarray, np.ndarray, np.ndarray]:
-    fp = bundle.get("fp", FingerprintConfig())
-    model = bundle["model"]
-    training = bundle.get("training_X")
-    predictions, uncertainty, similarities = [], [], []
-    for smi in smiles:
-        x = morgan_fingerprint(smi, fp)
-        if x is None:
-            predictions.append(np.full(len(keys), np.nan))
-            uncertainty.append(np.full(len(keys), np.nan))
-            similarities.append(np.nan)
-            continue
-        if "models" in bundle:
-            ensemble = np.stack([member.predict(x[None, :]) for member in bundle["models"]])
-            mean, std = ensemble_prediction_stats(ensemble)
-            pred, unc = mean[0], std[0]
-        else:
-            pred = model.predict(x[None, :])[0]
-            unc = np.full(len(keys), np.nan)
-        predictions.append(pred)
-        uncertainty.append(unc)
-        similarities.append(
-            tanimoto_to_training_set(x, training) if training is not None else np.nan
-        )
-    return np.asarray(predictions), np.asarray(uncertainty), np.asarray(similarities)
 
 
 def main() -> None:
@@ -97,7 +54,9 @@ def main() -> None:
     rc = load_receptors(parcellation=args.parcellation)
     atlas_path = args.atlas or Path(rc.parcellation.atlas_file)
     if not atlas_path.exists() or not args.artifact.exists():
-        raise SystemExit("real atlas and model artifact are required; refusing DEMO MODE for design.")
+        raise SystemExit(
+            "real atlas and model artifact are required; refusing DEMO MODE for design."
+        )
     atlas = pd.read_csv(atlas_path, index_col=0)
     if list(atlas.columns) != rc.atlas_keys or len(atlas) != rc.n_regions:
         raise SystemExit("atlas does not match the configured parcellation and receptor order")
@@ -105,18 +64,17 @@ def main() -> None:
     if args.target:
         target = pd.read_csv(args.target, header=None).to_numpy().ravel()
     else:
-        target = np.full(rc.n_regions, np.nan)
-        high = _region_indices(args.high_regions, rc.n_regions)
-        low = _region_indices(args.low_regions, rc.n_regions)
-        if set(high) & set(low):
-            raise SystemExit("a region cannot be both high and low")
-        target[high] = 1.0
-        target[low] = -1.0
+        high = region_indices(args.high_regions, rc.n_regions)
+        low = region_indices(args.low_regions, rc.n_regions)
+        try:
+            target = high_low_target(rc.n_regions, high, low)
+        except ValueError as exc:
+            raise SystemExit(str(exc)) from exc
     profile = fit_target_profile(atlas, target, regularization=args.regularization)
 
     bundle = joblib.load(args.artifact)
     smiles = _load_candidates(args.smiles_file, args.smiles)
-    predictions, uncertainties, similarities = _predict(bundle, smiles, rc.atlas_keys)
+    predictions, uncertainties, similarities = predict_bundle(bundle, smiles, len(rc.atlas_keys))
     rows = []
     for i, smi in enumerate(smiles):
         rows.append({

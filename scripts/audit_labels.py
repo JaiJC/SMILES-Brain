@@ -48,8 +48,10 @@ def write_report(stats: pd.DataFrame, density: float, output: Path, labels_path:
         "| Receptor | Molecules | Min pChEMBL | Median pChEMBL | Max pChEMBL | Observed |",
         "|---|---:|---:|---:|---:|---:|",
     ]
+    def fmt(value):
+        return "n/a" if pd.isna(value) else f"{value:.2f}"
+
     for row in stats.itertuples(index=False):
-        fmt = lambda value: "n/a" if pd.isna(value) else f"{value:.2f}"
         lines.append(
             f"| {row.receptor} | {row.n_molecules} | {fmt(row.min_pchembl)} | "
             f"{fmt(row.median_pchembl)} | {fmt(row.max_pchembl)} | {row.observed_pct:.1f}% |"

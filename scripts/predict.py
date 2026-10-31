@@ -17,54 +17,13 @@ from __future__ import annotations
 import argparse
 from pathlib import Path
 
-import joblib
 import numpy as np
 import pandas as pd
 
 from smilesbrain.config import load_receptors
-from smilesbrain.features import FingerprintConfig, morgan_fingerprint
-from smilesbrain.models.uncertainty import (
-    ensemble_prediction_stats,
-    flag_out_of_domain,
-    tanimoto_to_training_set,
-)
-from smilesbrain.projection import parse_direction_spec, project_affinity
+from smilesbrain.projection import parse_direction_spec
+from smilesbrain.service import DEMO_BANNER, load_atlas, load_model, predict_molecule
 from smilesbrain.utils import set_global_seed, write_run_manifest
-
-
-def _load_atlas(path: Path, rc):
-    if path.exists():
-        return pd.read_csv(path, index_col=0), False
-    from smilesbrain.data.synthetic import synthetic_atlas
-    return synthetic_atlas(rc), True
-
-
-def _load_model(path: Path, rc):
-    if path.exists():
-        if path.suffix == ".pt":
-            from smilesbrain.models.dmpnn import MaskedDMPNNRegressor
-
-            return {
-                "model": MaskedDMPNNRegressor.load(path, rc.atlas_keys),
-                "keys": rc.atlas_keys,
-                "smiles_model": True,
-            }, False
-        bundle = joblib.load(path)
-        return bundle, False
-    # DEMO: fit a tiny synthetic model so predict runs without prior training.
-    from smilesbrain.data.synthetic import synthetic_labels, synthetic_smiles
-    from smilesbrain.features import featurize_many
-    from smilesbrain.models.baseline import MaskedMultiTaskRidge
-    smiles = synthetic_smiles(300)
-    X, _kept = featurize_many(smiles)
-    Y = synthetic_labels(X, rc.n_receptors, seed=1)
-    model = MaskedMultiTaskRidge(receptor_keys=rc.atlas_keys).fit(X, Y)
-    return {
-        "model": model,
-        "fp": FingerprintConfig(),
-        "keys": rc.atlas_keys,
-        "training_X": X,
-    }, True
 
 
 def main() -> None:
@@ -88,42 +47,25 @@ def main() -> None:
     rc = load_receptors(parcellation=args.parcellation)
     args.atlas = args.atlas or Path(rc.parcellation.atlas_file)
     direction = parse_direction_spec(args.direction) if args.direction else None
-    bundle, demo_model = _load_model(args.artifact, rc)
-    model, fp, keys = bundle["model"], bundle.get("fp"), bundle["keys"]
-    atlas, demo_atlas = _load_atlas(args.atlas, rc)
+    bundle, demo_model = load_model(args.artifact, rc)
+    keys = bundle["keys"]
+    atlas, demo_atlas = load_atlas(args.atlas, rc)
     if demo_model or demo_atlas:
+        what = " and ".join(
+            w for w, on in (("model", demo_model), ("atlas", demo_atlas)) if on
+        )
         print("=" * 70)
-        print("DEMO MODE: using synthetic", "model" if demo_model else "",
-              "and" if demo_model and demo_atlas else "", "atlas" if demo_atlas else "")
-        print("Outputs are NOT scientifically meaningful. Train a real model and fetch the")
-        print("real atlas for genuine predictions.")
+        print(DEMO_BANNER.format(what=what))
         print("=" * 70)
 
-    if bundle.get("smiles_model"):
-        pred_vec, uncertainty_vec = model.predict_with_uncertainty([args.smiles])
-        pred_vec = pred_vec[0]
-        uncertainty_vec = uncertainty_vec[0]
-        max_similarity = np.nan
-    else:
-        x = morgan_fingerprint(args.smiles, fp)
-        if x is None:
-            raise SystemExit(f"Could not parse SMILES: {args.smiles!r}")
-        if "models" in bundle:
-            ensemble = np.stack([member.predict(x[None, :]) for member in bundle["models"]])
-            pred_vec, uncertainty_vec = ensemble_prediction_stats(ensemble)
-            pred_vec = pred_vec[0]
-            uncertainty_vec = uncertainty_vec[0]
-        else:
-            pred_vec = model.predict(x[None, :])[0]
-            uncertainty_vec = np.full(len(keys), np.nan)
-        training_X = bundle.get("training_X")
-        max_similarity = (
-            tanimoto_to_training_set(x, training_X) if training_X is not None else np.nan
+    try:
+        prediction = predict_molecule(
+            args.smiles, bundle, atlas, direction=direction, weight_mode=args.weight_mode
         )
-    out_of_domain = (
-        flag_out_of_domain(max_similarity) if np.isfinite(max_similarity) else False
-    )
-    affinity = {k: float(v) for k, v in zip(keys, pred_vec)}
+    except ValueError as exc:
+        raise SystemExit(str(exc)) from exc
+    affinity, uncertainty_vec = prediction.affinity, prediction.uncertainty
+    max_similarity, out_of_domain = prediction.max_training_tanimoto, prediction.out_of_domain
 
     print(f"\nSMILES: {args.smiles}")
     print("\npredicted affinity (pChEMBL):")
@@ -139,11 +81,12 @@ def main() -> None:
         )
     if np.isfinite(max_similarity):
         domain_label = "OUT-OF-DOMAIN" if out_of_domain else "in-domain"
-        print(f"\napplicability domain: {domain_label} (max training Tanimoto {max_similarity:.3f})")
+        print(f"\napplicability domain: {domain_label} "
+              f"(max training Tanimoto {max_similarity:.3f})")
     else:
         print("\napplicability domain: unavailable (artifact has no training fingerprints)")
 
-    result = project_affinity(affinity, atlas, weight_mode=args.weight_mode, direction=direction)
+    result = prediction.projection
     scores = result.region_scores
     print(f"\nreceptors used in projection: {', '.join(result.receptors_used)}")
     print(f"direction: {result.note}")

@@ -122,6 +122,23 @@ The batch script performs a CUDA/Chemprop preflight and refuses to fall back to 
 PDSP normalization rejects pKi values outside 0-14 and understands nM, pM, uM, mM,
 and molar units; rejected rows are excluded rather than silently used for training.
 
+## Demo, plotting, inverse design
+
+```bash
+pip install -e ".[app]"
+streamlit run app/app.py                          # type a SMILES -> affinities + brain map
+python scripts/plot_map.py artifacts/prediction.csv --html   # cortical-surface PNG (+ HTML)
+python scripts/design_screen.py --smiles-file candidates.txt --high-regions 1,2,3 --low-regions 98,99
+python scripts/design_generate.py --seed-smiles-file seeds.txt --high-regions 1,2,3 --low-regions 98,99
+python scripts/make_figures.py                    # figures + headline counts from artifacts/
+```
+
+The demo shows a `DEMO MODE` banner whenever the trained artifact or real atlas is missing, and
+always shows the validation caveat above. Design scores rank how well a molecule's predicted
+affinity *pattern* matches the receptor weights solved from a target regional profile; generated
+structures are **unvalidated hypotheses**, and given the validation result they are not evidence
+of a regional effect. The full write-up is `docs/REPORT.md`.
+
 ## Data (all open)
 
 - **Receptor atlas:** `netneurolab/hansen_receptors` (PET, 19 receptors/transporters, Schaefer-100).
@@ -130,5 +147,7 @@ and molar units; rejected rows are excluded rather than silently used for traini
 
 ## Status
 
-Early, actively built. Stage 1 baseline (Morgan fingerprint multi-task MLP) + Stage 2 projection
-run end-to-end; a D-MPNN affinity model and inverse design are in progress. See `docs/ROADMAP.md`.
+Pipeline, validation harness, inverse-design screen/generator, demo app and figure regeneration are
+built and tested offline. Outstanding: the production D-MPNN run, the corrected eight-drug tier table,
+and a transform from affinity to weights that actually predicts drug maps. See `docs/REPORT.md` and
+`docs/ROADMAP.md`.

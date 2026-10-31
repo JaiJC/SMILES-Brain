@@ -95,7 +95,9 @@ def _real(artifact: Path, atlas_path: Path, spins_path: Path | None, parcellatio
 def _write_report(args, rc, atlas, catalog, observed, perms, demo: bool) -> None:
     import json
 
-    from smilesbrain.validation.report import build_markdown, plot_report, two_tier_evaluation
+    from smilesbrain.validation.report import (
+        build_markdown, plot_report, tier_rows_to_frame, two_tier_evaluation,
+    )
 
     if demo:
         raise SystemExit("--report needs a real --artifact and --atlas; refusing to report on "
@@ -127,6 +129,9 @@ def _write_report(args, rc, atlas, catalog, observed, perms, demo: bool) -> None
         catalog, observed, atlas, labels, bundle["fp"], alpha, keys,
         perm_indices=perms, weight_mode=args.weight_mode, n_subjects=n_subjects, refit=refit,
     )
+    tiers_csv = args.report_out.with_name("validation_tiers.csv")
+    tiers_csv.parent.mkdir(parents=True, exist_ok=True)
+    tier_rows_to_frame(rows).to_csv(tiers_csv, index=False)
     meta = {"parcellation": rc.parcellation.key, "n_regions": rc.n_regions,
             "weight_mode": args.weight_mode, "seed": args.seed}
     diag = None
@@ -141,7 +146,7 @@ def _write_report(args, rc, atlas, catalog, observed, perms, demo: bool) -> None
     fig = plot_report(rows, args.report_out.with_suffix(".png"))
     args.report_out.write_text(md + f"\n![per-drug agreement]({fig.name})\n")
     print(md)
-    print(f"report -> {args.report_out}\nfigure -> {fig}")
+    print(f"report -> {args.report_out}\nfigure -> {fig}\ntier table -> {tiers_csv}")
     manifest = write_run_manifest(
         args.report_out,
         config={"artifact": str(args.artifact), "atlas": str(args.atlas), "spins": str(args.spins),

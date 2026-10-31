@@ -163,9 +163,47 @@ def test_inverse_design_exact_affinity_scores_best(rc):
     target[:5] = 1.0
     target[-5:] = -1.0
     profile = fit_target_profile(atlas, target)
-    exact = score_affinity(profile.receptor_weights, profile)
-    perturbed = score_affinity(profile.receptor_weights + 1.0, profile)
-    assert exact > perturbed
+    w = profile.receptor_weights
+    exact = score_affinity(w, profile)
+    assert exact == pytest.approx(1.0)
+    assert score_affinity(w[::-1].copy(), profile) < exact
+    assert score_affinity(-w, profile) == pytest.approx(-1.0)
+
+
+def test_inverse_design_score_ignores_scale_and_offset_of_affinity(rc):
+    """pChEMBL-scale values must not change the ranking: only the receptor pattern counts."""
+    atlas = synthetic_atlas(rc, seed=12)
+    target = np.full(rc.n_regions, np.nan)
+    target[:5], target[-5:] = 1.0, -1.0
+    profile = fit_target_profile(atlas, target)
+    w = profile.receptor_weights
+    pchembl_like = 6.0 + 2.0 * (w - w.mean()) / w.std()      # same pattern, pChEMBL units
+    assert score_affinity(pchembl_like, profile) == pytest.approx(1.0)
+    rng = np.random.default_rng(0)
+    base = rng.normal(size=w.shape)
+    assert score_affinity(base, profile) == pytest.approx(score_affinity(3 * base + 7, profile))
+
+
+def test_inverse_design_score_is_not_a_weak_binder_ranking(rc):
+    atlas = synthetic_atlas(rc, seed=12)
+    target = np.full(rc.n_regions, np.nan)
+    target[:5], target[-5:] = 1.0, -1.0
+    profile = fit_target_profile(atlas, target)
+    rng = np.random.default_rng(1)
+    aff = rng.uniform(4, 9, size=(500, rc.n_receptors))
+    scores = np.array([score_affinity(a, profile) for a in aff])
+    assert abs(np.corrcoef(scores, aff.mean(axis=1))[0, 1]) < 0.2
+
+
+def test_inverse_design_score_undefined_cases_are_minus_inf(rc):
+    atlas = synthetic_atlas(rc, seed=12)
+    target = np.full(rc.n_regions, np.nan)
+    target[:5], target[-5:] = 1.0, -1.0
+    profile = fit_target_profile(atlas, target)
+    assert score_affinity(np.full(rc.n_receptors, 6.0), profile) == float("-inf")
+    sparse = np.full(rc.n_receptors, np.nan)
+    sparse[:2] = [5.0, 7.0]
+    assert score_affinity(sparse, profile) == float("-inf")
 
 
 def test_projection_drops_nan_receptors(rc):

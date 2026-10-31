@@ -28,14 +28,15 @@ torch = ["torch>=2.1"]
 viz = ["matplotlib>=3.7", "nibabel>=5.1"]
 # Observed-map ingestion (nilearn) and spin nulls (netneurotools 0.3 dropped gen_spinsamples).
 neuro = ["nilearn>=0.10", "nibabel>=5.1", "netneurotools>=0.2.5,<0.3"]
+app = ["streamlit>=1.40", "matplotlib>=3.7", "nilearn>=0.10", "nibabel>=5.1", "rdkit>=2023.9"]
 dev = ["pytest>=7.4", "ruff>=0.1"]
-all = ["rdkit>=2023.9", "torch>=2.1", "matplotlib>=3.7", "nibabel>=5.1", "nilearn>=0.10", "netneurotools>=0.2.5,<0.3", "pytest>=7.4", "ruff>=0.1"]
+all = ["rdkit>=2023.9", "torch>=2.1", "matplotlib>=3.7", "nibabel>=5.1", "nilearn>=0.10", "netneurotools>=0.2.5,<0.3", "streamlit>=1.40", "pytest>=7.4", "ruff>=0.1"]
 
 [tool.setuptools.packages.find]
 where = ["src"]
 
 [tool.ruff]
-line-length = 100
+line-length = 120
 target-version = "py310"
 
 [tool.pytest.ini_options]

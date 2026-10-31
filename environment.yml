@@ -24,6 +24,8 @@ dependencies:
       # These optional packages are installed from PyPI because compatible
       # Python 3.10 conda-forge builds are not available.
       - netneurotools==0.2.5
+      - nilearn>=0.10
+      - streamlit>=1.40
       - chemprop==1.7.1
 
   # The pytorch package above is a CPU-capable baseline. On HPC systems with
