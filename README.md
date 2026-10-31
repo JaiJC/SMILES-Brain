@@ -46,9 +46,10 @@ the transform from a molecule to the right weight vector is an open problem.* Af
 magnitude is not it. The repo is built so that question can be attacked and the answer
 checked -- which is the point of the harness, the pre-registered directions and the nulls.
 
-**Next test (pre-registered, not yet run on real maps):** whether occupancy plus *learned,
-shared receptor gains* rescues affinity as a weight: `docs/PREREGISTRATION.md`,
-`scripts/learned_gains.py`. The runner refuses to start without the pre-registration file.
+**Second test (pre-registered, run 2026-10-31): not supported.** Occupancy plus *learned,
+shared receptor gains* does not rescue affinity as a weight: 0 of 6 drugs beat the
+receptor-shuffle null (`docs/PREREGISTRATION.md`, `docs/results/learned_gains_report.md`). With
+only 6 evaluable drugs it rules out strong effects, not weak ones.
 
 ## Honest limitations (read before trusting any output)
 

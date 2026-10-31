@@ -69,20 +69,24 @@ Correlating each observed map with single receptor densities, midazolam's GABA-A
 On a scaffold split the repository records GBDT 0.387 > ridge 0.367 (mean held-out R², README).
 The D-MPNN result is intentionally not reported until its CUDA/SLURM run completes.
 
-### 5. Two-tier correlations
-An early five-drug run (2026-10-20, `docs/VALIDATION.md`, "first real run") found Tier B
-zero-shot 0/5 spin-significant and Tier A weak. **That run predates the atlas bug fix** (10 of
-19 receptor columns were wrong; the fix removed a spurious significant LSD result), so its
-numbers are superseded and should not be quoted. The corrected eight-drug tier table is
-produced by:
+### 5. Two-tier correlations (corrected atlas, 8 drugs, 1000 spin rotations)
+Regenerated 2026-10-31 from `docs/results/validation_tiers.csv` (full report:
+`docs/results/validation_report.md`). The earlier five-drug run predates the atlas fix and is
+superseded.
 
-```bash
-python scripts/evaluate.py --report            # writes artifacts/validation_tiers.csv
-python scripts/make_figures.py                  # writes artifacts/figures/numbers.md + fig_validation_r.png
-```
+| tier | n drugs | median r | p<0.05 | BH p<0.05 | expected sign correct |
+|---|---:|---:|---:|---:|---:|
+| A: measured affinity | 6 | +0.016 | 1/6 | 0/6 | 4/6 |
+| B: zero-shot | 8 | +0.045 | 1/8 | 1/8 | 3/8 |
+| A-dir: pre-registered directions | 8 | -0.219 | 0/8 | 0/8 | 4/8 |
+| B-dir: pre-registered directions | 8 | -0.212 | 0/8 | 0/8 | 4/8 |
 
-It is deliberately not typed into this document: paste `numbers.md` here after running it, with
-its null type (spin, 1000 rotations) intact.
+Tier A has 6 drugs because escitalopram and midazolam have fewer than three measured receptors
+in the label table. The one raw-significant Tier A result is risperidone (r = -0.346, p = 0.035,
+BH 0.210); the one Tier B result that survives BH is also risperidone (r = -0.489, BH p = 0.032).
+Across 24 drug-tier tests that is one finding, not a pattern, and it is not corroborated by the
+receptor-permutation diagnostic. The diagnostics reproduce the earlier run exactly (ceiling
+median cross-validated r 0.668, 7 of 8 spin-significant; 0 of 6 beat the receptor-shuffle null).
 
 ### What the evidence supports
 > Receptor density maps can explain drug-induced CBF maps well, but binding affinity is not the
@@ -93,17 +97,46 @@ This does not rule out another transform of the affinity profile (occupancy at c
 efficacy, direction, pharmacokinetics) being the right weight. The high ceiling says such a
 weight exists.
 
-## Next experiment (pre-registered, not yet run on real data)
+## Second experiment: learned receptor gains (pre-registered, run, not supported)
 
-The leading untested explanation for the negative result is that affinity is neither occupancy
-(binding saturates) nor a uniform-sign weight (receptors differ in how they move blood flow).
-`docs/PREREGISTRATION.md` fixes, before any real run, a test of a shared per-receptor gain
-vector applied to occupancy, fitted leave-one-drug-out, with a receptor-shuffle null, a
-mean-map baseline and a hierarchical Tier A -> Tier B decision rule. On synthetic data it
-recovers planted gains, never passed on null data (0 of 40 studies) and detects a held-out
-r of about 0.5 or more most of the time (`scripts/lodo_power.py`); it cannot rule out weak
-effects. **No result on real maps exists yet.** To run it: commit the pre-registration, then
-`python scripts/learned_gains.py --spins data/atlas/spins_scale100.npy`.
+The leading untested explanation for the negative result was that affinity is neither
+occupancy (binding saturates) nor a uniform-sign weight (receptors differ in how they move
+blood flow). `docs/PREREGISTRATION.md` (committed 2026-10-31 15:28 IST, before any map was
+downloaded or any model run; SHA-256 `c49d8461...`) fixed a test of one shared gain per
+receptor applied to occupancy, fitted leave-one-drug-out, against a receptor-shuffle null, a
+mean-map baseline and a hierarchical Tier A -> Tier B rule. The runner executed exactly as
+registered (5000 shuffles, 1000 spin rotations, 100 nM primary). Full output:
+`docs/results/learned_gains_report.md`.
+
+**Result: CRITERION NOT MET.** Tier A (measured affinity, the gate): **0 of 6 drugs** beat the
+receptor-shuffle null (4 needed), median held-out r +0.086, median gain over the mean-map
+baseline -0.010. By the pre-registered rule Tier B is not interpreted. Every sensitivity
+analysis (10 and 1000 nM, leave-class-out) is also not met (at most 1 drug beat the null).
+
+What this does and does not show:
+- Four drugs have a **negative** model r in Tier A or B (e.g. ketamine -0.30, LSD -0.36 in Tier A).
+  In Tier A the true assignment's r is within 0.1 of the shuffled-assignment mean for 4 of 6
+  drugs (LSD, ketamine, risperidone, haloperidol) and no drug beats the null. There is no sign
+  of drug-specific information in occupancy plus shared gains.
+- Power at the size actually available (6 evaluable drugs, 5 training drugs each, measured
+  post hoc by `python scripts/lodo_power.py --n-drugs 6`): 75% at a held-out r of about 0.67,
+  45% at 0.51, 12% at 0.38, 0% false positives on null data. So this **rules out a strong
+  gain-model signal (held-out r above roughly 0.6) but not a weak one**. The observed median
+  of +0.09 is nowhere near either threshold.
+- Three Tier B rows (escitalopram, haloperidol, midazolam) have spin p of 0.015-0.023 but fail
+  the receptor-shuffle null (p 0.20-0.26) and Tier B is gated off; with 8 drugs and many
+  analyses these are not evidence.
+- Not tested: per-drug dose and pharmacokinetics (one global 100 nM), non-linear transforms,
+  subcortex, non-CBF readouts, more than 8 drugs, and richer profiles for escitalopram and
+  midazolam (1-2 measured receptors).
+
+**Where this leaves the project.** Two independent pre-planned tests (affinity as weight;
+occupancy with learned shared gains) both fail on these eight maps, while the density basis
+itself reproduces the maps well. The zero-shot claim is not supported, and the next step is
+not a better affinity model or a GPU D-MPNN run, which cannot help: it is either more and
+better observed maps (more drugs, a second lab or readout, PET occupancy instead of CBF) or a
+different question (predicting *which receptor systems a drug engages*, validated against
+pharmacology, rather than a CBF map).
 
 ## Inverse design and generation: status
 
@@ -136,8 +169,9 @@ effects. **No result on real maps exists yet.** To run it: commit the pre-regist
   the alternative was not tested.
 - Spin tests assign rotated parcels to their nearest unrotated one, so spun maps are not strict
   permutations (standard behaviour of the method).
-- D-MPNN, real-artifact design runs and the corrected eight-drug tier table need real data and
-  a GPU and were not run in this repository's offline environment.
+- The D-MPNN production run needs a GPU and was not run. Real-artifact design runs were not
+  done: given the results above they would optimise an objective that is not known to predict
+  maps.
 
 ## Reproduce
 

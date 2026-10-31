@@ -252,3 +252,27 @@ Things that make the null less damning than it looks, none of which is tested ye
   subcortical. `cammoun033` has an atlas now but no matching observed-map ingestion or spin null.
 - Haloperidol's nearest remaining training analogue has Tanimoto 0.93 even after its scaffold was
   removed, so its "zero-shot" row is the least held-out of the five.
+
+## Reproducing the data without ChEMBL/OSF (2026-10-31)
+
+The maps and nulls were rebuilt from scratch in a locked-down environment; they reproduce the
+log above (risperidone vs haloperidol maps r = 0.525 vs 0.53 reported; 0 regions missing in all
+eight maps).
+
+- Dukart supplement:
+  `https://static-content.springer.com/esm/art%3A10.1038%2Fs41598-018-22444-0/MediaObjects/41598_2018_22444_MOESM2_ESM.zip`
+  (sha256 `c652dceb0ddd25d9b66c0e1045800d8a8252f4153aa2bcc42283e31fc43b3716`).
+- LSD: `https://neurovault.org/media/images/1083/CBF_Difference.nii.gz`
+  (image 14479, T map, n = 15, unthresholded;
+  sha256 `6d165604b0e8f24f9275c1361edd27ae43ea354021a8c67464fd49f7622432e8`).
+- Ingest each with `scripts/ingest_map.py` as in the provenance table (Dukart maps with
+  `--zero-as-missing`).
+- Spin nulls without the OSF download: fetch the two Schaefer annotations from the CBIG repo
+  (`stable_projects/brain_parcellation/Schaefer2018_LocalGlobal/Parcellations/FreeSurfer5.3/fsaverage5/label/{lh,rh}.Schaefer2018_100Parcels_7Networks_order.annot`)
+  and run `python scripts/fetch_parcel_coords.py --annot-dir <dir>`, then
+  `make_spins.py` (needs `netneurotools==0.2.5` with `scipy<=1.14`, which does not import on
+  newer scipy).
+- Labels without raw ChEMBL: `python -m smilesbrain.data.assemble --from-merged data/affinity_merged`.
+- The trained ridge baseline from those labels gives mean held-out R^2 0.379 (non-sparse
+  receptors), alpha 10, vs 0.367 in the earlier log; the difference comes from the label table
+  and does not change the conclusions above.

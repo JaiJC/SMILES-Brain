@@ -74,14 +74,40 @@ def assemble(
     return merged[cols]
 
 
+def assemble_from_merged(merged_dir: Path, config: str | None = None) -> pd.DataFrame:
+    """Build the wide label table from already-merged per-receptor CSVs (no raw ChEMBL needed).
+
+    `merged_dir/<atlas_key>.csv` are the files `assemble` itself writes (canonical_smiles,
+    pchembl, source), so this reproduces its final join without re-downloading anything.
+    """
+    cfg = load_receptors(config)
+    merged: pd.DataFrame | None = None
+    for rec in cfg.receptors:
+        path = merged_dir / f"{rec.atlas_key}.csv"
+        if not path.exists():
+            continue
+        frame = pd.read_csv(path)[["canonical_smiles", "pchembl"]]
+        if frame["canonical_smiles"].duplicated().any():
+            raise ValueError(f"{path}: duplicate canonical_smiles; merged files must be unique")
+        df = frame.rename(columns={"pchembl": rec.atlas_key}).set_index("canonical_smiles")
+        merged = df if merged is None else merged.join(df, how="outer")
+    if merged is None:
+        raise FileNotFoundError(f"No per-receptor CSVs found in {merged_dir}")
+    return merged[[k for k in cfg.atlas_keys if k in merged.columns]]
+
+
 def main() -> None:
     ap = argparse.ArgumentParser(description="Assemble wide affinity label table.")
     ap.add_argument("--affinity-dir", default="data/affinity", type=Path)
     ap.add_argument("--out", default="data/labels.parquet", type=Path)
     ap.add_argument("--config", default=None)
+    ap.add_argument("--from-merged", default=None, type=Path, metavar="DIR",
+                    help="build from merged per-receptor CSVs (e.g. data/affinity_merged) "
+                         "instead of raw ChEMBL downloads")
     args = ap.parse_args()
 
-    table = assemble(args.affinity_dir, args.config)
+    table = (assemble_from_merged(args.from_merged, args.config) if args.from_merged
+             else assemble(args.affinity_dir, args.config))
     args.out.parent.mkdir(parents=True, exist_ok=True)
     if args.out.suffix == ".parquet":
         table.to_parquet(args.out)

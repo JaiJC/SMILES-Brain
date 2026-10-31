@@ -36,6 +36,7 @@ generalisation numbers you can defend in an interview.
 
 ## Next (after the sprint)
 - [x] Pre-register and build the learned-gains leave-one-drug-out test (`docs/PREREGISTRATION.md`).
-- [ ] Run `scripts/learned_gains.py` on the real maps (needs the observed maps, spin nulls and the
-      trained artifact; commit the pre-registration first). Tier B only if Tier A is met.
-- [ ] Production D-MPNN on GPU, only worth it if the above is met.
+- [x] Run `scripts/learned_gains.py` on the real maps: criterion NOT met (0/6 beat the null).
+- [ ] ~~Production D-MPNN on GPU~~ not worth it: the bottleneck is the affinity->map transform,
+      not the affinity model.
+- [ ] More/better observed maps (more drugs, second lab, PET occupancy) or a reframed question.

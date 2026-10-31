@@ -68,10 +68,17 @@ def test_service_demo_prediction_and_bad_smiles():
         predict_molecule("not-a-smiles", bundle, atlas)
 
 
-def test_app_renders_a_map_and_the_demo_and_limitations_banners():
+def test_app_renders_a_map_and_the_demo_and_limitations_banners(tmp_path):
+    """Hermetic: forces DEMO mode by pointing at missing files, so it does not depend on whether
+    this machine happens to have a trained artifact or real atlas on disk."""
     pytest.importorskip("rdkit")
     testing = pytest.importorskip("streamlit.testing.v1")
     at = testing.AppTest.from_file(str(APP), default_timeout=60).run()
+    assert not at.exception
+    sidebar = {t.label: t for t in at.sidebar.text_input}
+    sidebar["Model artifact"].set_value(str(tmp_path / "none.joblib"))
+    sidebar["Atlas CSV (blank = parcellation default)"].set_value(str(tmp_path / "none.csv"))
+    at.run()
     assert not at.exception
     banners = " ".join(e.value for e in at.error) + " " + " ".join(w.value for w in at.warning)
     assert "DEMO MODE" in banners
