@@ -93,6 +93,18 @@ This does not rule out another transform of the affinity profile (occupancy at c
 efficacy, direction, pharmacokinetics) being the right weight. The high ceiling says such a
 weight exists.
 
+## Next experiment (pre-registered, not yet run on real data)
+
+The leading untested explanation for the negative result is that affinity is neither occupancy
+(binding saturates) nor a uniform-sign weight (receptors differ in how they move blood flow).
+`docs/PREREGISTRATION.md` fixes, before any real run, a test of a shared per-receptor gain
+vector applied to occupancy, fitted leave-one-drug-out, with a receptor-shuffle null, a
+mean-map baseline and a hierarchical Tier A -> Tier B decision rule. On synthetic data it
+recovers planted gains, never passed on null data (0 of 40 studies) and detects a held-out
+r of about 0.5 or more most of the time (`scripts/lodo_power.py`); it cannot rule out weak
+effects. **No result on real maps exists yet.** To run it: commit the pre-registration, then
+`python scripts/learned_gains.py --spins data/atlas/spins_scale100.npy`.
+
 ## Inverse design and generation: status
 
 - A defect was found and fixed while building this stage: `score_affinity` compared raw pChEMBL

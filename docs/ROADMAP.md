@@ -33,3 +33,9 @@ generalisation numbers you can defend in an interview.
 - Density ≠ drug exposure ≠ agonist/antagonist direction. Correlational validation only.
 - Some receptors (VAChT, GABA-A subunit, NMDA) have sparse or proxy ligand data.
 - Spin test must use real spherical nulls before any p-value is reported.
+
+## Next (after the sprint)
+- [x] Pre-register and build the learned-gains leave-one-drug-out test (`docs/PREREGISTRATION.md`).
+- [ ] Run `scripts/learned_gains.py` on the real maps (needs the observed maps, spin nulls and the
+      trained artifact; commit the pre-registration first). Tier B only if Tier A is met.
+- [ ] Production D-MPNN on GPU, only worth it if the above is met.
